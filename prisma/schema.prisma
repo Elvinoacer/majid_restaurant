@@ -60,6 +60,7 @@ model Restaurant {
   operatingOverrides OperatingHoursOverride[]
   tables             RestaurantTable[]
   aboutContent       AboutContent?
+  notificationTokens NotificationToken[]
 
   @@index([slug])
 }
@@ -142,6 +143,7 @@ model Customer {
   name          String?
   image         String?
   loyaltyPoints Int      @default(0)
+  passwordHash  String? // for Credentials provider (guest checkout still works without one)
   createdAt     DateTime @default(now())
 
   accounts   Account[]
@@ -150,6 +152,7 @@ model Customer {
   reservations Reservation[]
   reviews    Review[]
   addresses  CustomerAddress[]
+  notificationTokens NotificationToken[] @relation("CustomerTokens")
 
   @@unique([restaurantId, email])
   @@index([restaurantId])
@@ -190,6 +193,36 @@ model CustomerAddress {
   latitude   Float?
   longitude  Float?
   isDefault  Boolean @default(false)
+}
+
+// NextAuth v5 — required for email verification flows & magic links.
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Persisted FCM / web-push tokens (PRD §5.15). Phase 1 logged only; Phase 2
+// actually stores them so server-side notifications can be sent on order &
+// reservation events. One customer (or anonymous browser) may have many tokens
+// across devices.
+model NotificationToken {
+  id            String   @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customerId    String?
+  customer      Customer?  @relation("CustomerTokens", fields: [customerId], references: [id], onDelete: Cascade)
+  token         String
+  userAgent     String?
+  platform      String? // "web" | "android" | "ios"
+  createdAt     DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+
+  @@unique([restaurantId, token])
+  @@index([restaurantId])
+  @@index([customerId])
 }
 
 // ─── MENU ────────────────────────────────────────────────

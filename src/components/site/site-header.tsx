@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, Phone, MapPin } from "lucide-react";
+import { Menu, X, Phone, MapPin, ShoppingCart, Calendar, UtensilsCrossed } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/lib/cart/store";
 
 type SiteHeaderProps = {
   slug: string;
@@ -18,6 +19,8 @@ type SiteHeaderProps = {
 const NAV_LINKS = [
   { href: "", label: "Home" },
   { href: "/menu", label: "Menu" },
+  { href: "/reservations", label: "Reserve", icon: Calendar },
+  { href: "/catering", label: "Catering", icon: UtensilsCrossed },
   { href: "/gallery", label: "Gallery" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
@@ -38,6 +41,10 @@ export function SiteHeader({
     href === ""
       ? pathname === base
       : pathname === `${base}${href}` || pathname.startsWith(`${base}${href}/`);
+
+  const cartCount = useCart((s) => s.count());
+  const cartSlug = useCart((s) => s.restaurantSlug);
+  const showCartBadge = cartSlug === slug && cartCount > 0;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -71,7 +78,7 @@ export function SiteHeader({
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href || "home"}
@@ -97,20 +104,43 @@ export function SiteHeader({
             <Phone className="h-4 w-4" />
             Call
           </a>
+          <Button asChild size="sm" variant="outline" className="relative">
+            <Link href={`${base}/cart`}>
+              <ShoppingCart className="h-4 w-4" />
+              <span className="sr-only">Cart</span>
+              {showCartBadge && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          </Button>
           <Button asChild size="sm">
             <Link href={`${base}/menu`}>Order Now</Link>
           </Button>
         </div>
 
         {/* Mobile toggle */}
-        <button
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground hover:bg-accent/10 md:hidden"
-          aria-label="Toggle navigation menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-1 md:hidden">
+          <Button asChild size="sm" variant="outline" className="relative">
+            <Link href={`${base}/cart`}>
+              <ShoppingCart className="h-4 w-4" />
+              {showCartBadge && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          </Button>
+          <button
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground hover:bg-accent/10"
+            aria-label="Toggle navigation menu"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}

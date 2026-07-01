@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Flame, Leaf, Sparkles, Star, Minus, Plus, MessageCircle } from "lucide-react";
+import { Flame, Leaf, Sparkles, Star, Minus, Plus, MessageCircle, ShoppingCart, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,8 @@ import {
   buildWhatsAppUrl,
   formatKsh,
 } from "@/lib/whatsapp/order";
+import { useCart } from "@/lib/cart/store";
+import { toast } from "sonner";
 import type { MenuItemWithTags } from "@/lib/menu";
 
 type MenuItemCardProps = {
@@ -27,7 +29,10 @@ export function MenuItemCard({
   customerPhone,
 }: MenuItemCardProps) {
   const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
   const soldOut = !item.isAvailable;
+
+  const addLine = useCart((s) => s.addLine);
 
   const handleWhatsAppOrder = () => {
     const message = buildSingleItemWhatsAppMessage({
@@ -39,6 +44,21 @@ export function MenuItemCard({
     });
     const url = buildWhatsAppUrl(whatsappPhone, message);
     window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleAddToCart = () => {
+    addLine(
+      {
+        menuItemId: item.id,
+        name: item.name,
+        unitPrice: item.price,
+        imageUrl: item.imageUrl,
+      },
+      qty,
+    );
+    setAdded(true);
+    toast.success(`${qty}× ${item.name} added to cart`);
+    setTimeout(() => setAdded(false), 1500);
   };
 
   return (
@@ -134,33 +154,45 @@ export function MenuItemCard({
 
         {/* Actions */}
         {!soldOut && (
-          <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-            <div className="inline-flex items-center rounded-md border border-border">
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center text-foreground hover:bg-accent/10"
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-                aria-label="Decrease quantity"
+          <div className="mt-auto flex flex-col gap-2 pt-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="inline-flex items-center rounded-md border border-border">
+                <button
+                  className="inline-flex h-9 w-9 items-center justify-center text-foreground hover:bg-accent/10"
+                  onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  aria-label="Decrease quantity"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span
+                  className="w-8 text-center text-sm font-medium"
+                  aria-label={`Quantity ${qty}`}
+                >
+                  {qty}
+                </span>
+                <button
+                  className="inline-flex h-9 w-9 items-center justify-center text-foreground hover:bg-accent/10"
+                  onClick={() => setQty((q) => q + 1)}
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+
+              <Button
+                size="sm"
+                variant={added ? "secondary" : "default"}
+                onClick={handleAddToCart}
+                className="gap-1.5"
               >
-                <Minus className="h-4 w-4" />
-              </button>
-              <span
-                className="w-8 text-center text-sm font-medium"
-                aria-label={`Quantity ${qty}`}
-              >
-                {qty}
-              </span>
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center text-foreground hover:bg-accent/10"
-                onClick={() => setQty((q) => q + 1)}
-                aria-label="Increase quantity"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+                {added ? <Check className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+                {added ? "Added" : "Add to cart"}
+              </Button>
             </div>
 
             <Button
               size="sm"
-              variant="default"
+              variant="outline"
               onClick={handleWhatsAppOrder}
               className="gap-1.5"
             >

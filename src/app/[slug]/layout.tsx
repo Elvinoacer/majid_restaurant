@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
+import { CartTenantSync } from "@/components/cart/cart-tenant-sync";
 import { RestaurantNotFoundError, getContextRestaurant } from "@/lib/restaurant/context";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,7 @@ export default async function TenantLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
+      <CartTenantSync slug={slug} />
       <SiteHeader
         slug={slug}
         restaurantName={restaurant.name}

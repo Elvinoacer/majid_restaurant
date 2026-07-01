@@ -125,6 +125,7 @@ export function tenantDb(restaurantId: string) {
     operatingHoursOverride: makeTenantModel(prisma.operatingHoursOverride, restaurantId),
     restaurantTable: makeTenantModel(prisma.restaurantTable, restaurantId),
     branch: makeTenantModel(prisma.branch, restaurantId),
+    notificationToken: makeTenantModel(prisma.notificationToken, restaurantId),
     aboutContent: {
       findUnique: (args?: any) =>
         prisma.aboutContent.findUnique({

@@ -571,7 +571,149 @@ async function main() {
   await db.restaurantTable.createMany({ data: tables });
   console.log(`  ✓ Inserted ${tables.length} tables`);
 
+  // ── Phase 2 seed data ─────────────────────────────────────
+  // Staff user (OWNER) for the admin dashboard login.
+  // Demo customer account for the customer sign-in flow.
+  const bcrypt = (await import("bcryptjs")).default;
+
+  await db.staffUser.deleteMany({ where: { restaurantId: restaurant.id } });
+  await db.staffUser.create({
+    data: {
+      restaurantId: restaurant.id,
+      name: "Majid (Owner)",
+      email: "owner@majid.com",
+      role: "OWNER",
+      isActive: true,
+      passwordHash: await bcrypt.hash("majid-owner-2024", 10),
+    },
+  });
+  await db.staffUser.create({
+    data: {
+      restaurantId: restaurant.id,
+      name: "Aisha (Manager)",
+      email: "manager@majid.com",
+      role: "MANAGER",
+      isActive: true,
+      passwordHash: await bcrypt.hash("majid-manager-2024", 10),
+    },
+  });
+  await db.staffUser.create({
+    data: {
+      restaurantId: restaurant.id,
+      name: "Yusuf (Kitchen)",
+      email: "kitchen@majid.com",
+      role: "KITCHEN",
+      isActive: true,
+      passwordHash: await bcrypt.hash("majid-kitchen-2024", 10),
+    },
+  });
+  console.log(`  ✓ Inserted 3 staff users (owner@majid.com / manager@majid.com / kitchen@majid.com)`);
+
+  // Demo customer — used by the customer sign-in flow on /<slug>/sign-in.
+  await db.customer.deleteMany({ where: { restaurantId: restaurant.id } });
+  const demoCustomer = await db.customer.create({
+    data: {
+      restaurantId: restaurant.id,
+      email: "aisha@example.com",
+      name: "Aisha Mohamed",
+      phone: "+254712345678",
+      passwordHash: await bcrypt.hash("aisha-demo-2024", 10),
+    },
+  });
+  console.log(`  ✓ Inserted 1 demo customer (aisha@example.com / aisha-demo-2024)`);
+
+  // Sample completed order so the admin dashboard isn't empty on first load.
+  // Marks the demo customer as having a completed order — reviewable.
+  const chickenBiryani = await db.menuItem.findFirst({
+    where: { restaurantId: restaurant.id, name: "Chicken Biryani" },
+  });
+  const mangoLassi = await db.menuItem.findFirst({
+    where: { restaurantId: restaurant.id, name: "Mango Lassi" },
+  });
+  if (chickenBiryani && mangoLassi) {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sampleOrder = await db.order.create({
+      data: {
+        restaurantId: restaurant.id,
+        branchId: branch.id,
+        customerId: demoCustomer.id,
+        guestName: "Aisha Mohamed",
+        guestPhone: "+254712345678",
+        status: "COMPLETED",
+        fulfillmentType: "DELIVERY",
+        scheduledFor: null,
+        deliveryAddress: "House 12, Section 58, Nakuru",
+        specialInstructions: "Extra spicy please",
+        subtotal: 1050,
+        total: 1050,
+        paymentMethod: "MPESA",
+        paidAt: yesterday,
+        createdAt: yesterday,
+        items: {
+          create: [
+            { menuItemId: chickenBiryani.id, quantity: 2, unitPrice: 450, notes: "extra spicy" },
+            { menuItemId: mangoLassi.id, quantity: 1, unitPrice: 150, notes: null },
+          ],
+        },
+      },
+    });
+    console.log(`  ✓ Inserted 1 sample completed order (#${sampleOrder.id.slice(-6).toUpperCase()})`);
+
+    // Sample review from that completed order — pending moderation so the
+    // owner sees something to action on the admin reviews page.
+    await db.review.create({
+      data: {
+        restaurantId: restaurant.id,
+        customerId: demoCustomer.id,
+        orderId: sampleOrder.id,
+        rating: 5,
+        comment: "The chicken biryani was even better than last time. Extra spicy as requested. Mango lassi was perfect.",
+        isPublished: false,
+      },
+    });
+    console.log(`  ✓ Inserted 1 sample review (pending moderation)`);
+  }
+
+  // Sample catering inquiry so the admin catering list isn't empty.
+  await db.cateringInquiry.create({
+    data: {
+      restaurantId: restaurant.id,
+      contactName: "Janet Wanjiru",
+      contactPhone: "+254722987654",
+      contactEmail: "janet@acmecorp.co.ke",
+      eventDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      guestCount: 80,
+      budgetRange: "KSh 50,000 - 100,000",
+      preferredCuisine: "Biryani + nyama choma + vegetarian options",
+      eventType: "corporate",
+      notes: "Annual staff party. Need serving staff and clean-up.",
+      status: "NEW",
+    },
+  });
+  console.log(`  ✓ Inserted 1 sample catering inquiry`);
+
+  // Sample upcoming reservation.
+  const tomorrow5pm = new Date();
+  tomorrow5pm.setDate(tomorrow5pm.getDate() + 1);
+  tomorrow5pm.setHours(17, 0, 0, 0);
+  await db.reservation.create({
+    data: {
+      restaurantId: restaurant.id,
+      branchId: branch.id,
+      guestName: "James Kamau",
+      guestPhone: "+254733456789",
+      partySize: 4,
+      reservedFor: tomorrow5pm,
+      occasion: "birthday",
+      seatingPref: "indoor",
+      notes: "Bringing a birthday cake — need a small table near the window.",
+      status: "PENDING",
+    },
+  });
+  console.log(`  ✓ Inserted 1 sample reservation`);
+
   console.log(`\n→ Seed complete. Visit /${MAJID_SLUG} to view the demo.`);
+  console.log(`→ Admin: /${MAJID_SLUG}/admin/sign-in (owner@majid.com / majid-owner-2024)`);
 }
 
 main()

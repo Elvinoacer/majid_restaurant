@@ -2,20 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 /**
- * FCM token registration endpoint (PRD §5.15 — Phase 1 plumbing).
+ * FCM token registration endpoint (PRD §5.15).
  *
- * Phase 1 only sets up the registration surface so the client-side service
- * worker can register a token. Notification firing begins in Phase 2
- * (order status changes, reservation confirmations).
+ * Phase 1 only logged the token to the console. Phase 2 persists it to the
+ * NotificationToken table so server-side notifications can actually fire on
+ * order & reservation events.
  *
- * Accepts a POST with `{ token, restaurantSlug, customerId? }` and stores it
- * for later use. For Phase 1 we just acknowledge and log — the actual token
- * store will be added when notification sending lands in Phase 2.
+ * Accepts: `{ token, restaurantSlug, customerId?, platform?, userAgent? }`
+ *
+ * The endpoint is idempotent on (restaurantId, token) — re-registering an
+ * existing token bumps `lastSeenAt` instead of inserting a duplicate.
+ *
+ * Anonymous tokens (no customerId) are allowed — they're how staff devices
+ * and not-yet-logged-in browsers subscribe to notifications. Customer tokens
+ * are stamped with customerId when the customer signs in (see sign-in flow).
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { token, restaurantSlug, customerId } = body ?? {};
+    const { token, restaurantSlug, customerId, platform, userAgent } = body ?? {};
 
     if (!token || !restaurantSlug) {
       return NextResponse.json(
@@ -35,14 +40,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Phase 1: log only. Phase 2 will persist to a PushSubscription table.
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[FCM] token registered", {
+    await db.notificationToken.upsert({
+      where: {
+        restaurantId_token: { restaurantId: restaurant.id, token },
+      },
+      update: {
+        lastSeenAt: new Date(),
+        ...(customerId ? { customerId } : {}),
+        ...(platform ? { platform } : {}),
+        ...(userAgent ? { userAgent } : {}),
+      },
+      create: {
         restaurantId: restaurant.id,
+        token,
         customerId: customerId ?? null,
-        tokenPreview: token.slice(0, 12) + "…",
-      });
-    }
+        platform: platform ?? null,
+        userAgent: userAgent ?? null,
+      },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e) {

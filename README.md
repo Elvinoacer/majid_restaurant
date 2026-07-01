@@ -1,16 +1,17 @@
 # MajidOS — Restaurant Growth Platform
 
-> **Phase 0 + Phase 1 deliverable** of the multi-tenant restaurant platform specified in `requirements.md` (PRD v1.0).
+> **Phase 0 + Phase 1 + Phase 2 deliverable** of the multi-tenant restaurant platform specified in `requirements.md` (PRD v1.0).
 > Built by GTSS (Great Thumbs Software Solutions) for the Majid Restaurant pitch, on Path B (multi-tenant from the schema up).
 
 ---
 
 ## 1. What's in this build
 
-Phase 0 (foundation) + Phase 1 (presence & menu) of the PRD — a real, demoable
-web app that replaces "no website" with a genuinely good one for Majid
-Restaurant, while keeping the schema multi-tenant so the second client is a
-config entry, not a codebase fork.
+Phase 0 (foundation) + Phase 1 (presence & menu) + Phase 2 (ordering,
+reservations, accounts, M-Pesa, admin dashboard) of the PRD — a real, demoable
+web app that lets a customer place and pay for a real order end-to-end and the
+owner manage it from a basic admin dashboard, while keeping the schema
+multi-tenant so the second client is a config entry, not a codebase fork.
 
 ### Phase 0 — Foundation ✅
 
@@ -378,27 +379,137 @@ All relations, enums (`StaffRole`, `OrderStatus`, `FulfillmentType`,
 
 ---
 
-## 11. Next Phase Preview (Phase 2)
+## 11. Phase 2 — Ordering, Reservations & Accounts ✅
 
-When you're ready, Phase 2 will add (PRD §9 Phase 2):
+Phase 2 is complete. All 7 PRD §9 Phase 2 features have shipped:
 
-- Online ordering with `Order` cart lifecycle (`DRAFT` → `PENDING_PAYMENT` →
-  `CONFIRMED` → `PREPARING` → `READY` → `DELIVERED` / `COMPLETED`).
-- M-Pesa Daraja STK Push with idempotent callback
-  (`mpesaCheckoutRequestId` column already on `Order`).
-- Table reservations against `RestaurantTable` (already seeded for Majid).
-- Customer accounts via NextAuth v5 (Credentials + Google OAuth).
-  `Customer`, `Account`, `Session` models already in schema.
-- Customer reviews tied to completed orders.
-- Catering inquiries (`CateringInquiry` model already in schema).
-- Admin dashboard core — menu CRUD, order list, reservation calendar.
+| PRD §  | Feature                  | Implementation                                                                                                |
+| ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| §5.4   | Online ordering          | Cart (zustand + localStorage), checkout flow, DRAFT → PENDING_PAYMENT → CONFIRMED → … → COMPLETED lifecycle  |
+| §5.5   | Table reservations       | Public form with capacity-based availability check (2-hour window, 1.2× overbook allowance)                  |
+| §5.8   | Catering requests        | Public form, admin workflow NEW → CONTACTED → QUOTED → CONFIRMED → COMPLETED/DECLINED                          |
+| §5.10  | Customer reviews         | Submit form gated by COMPLETED order + logged-in ownership; owner-moderated before publishing                 |
+| §5.13  | Customer accounts        | NextAuth v5 Credentials + Google OAuth (opt-in via env). Guest checkout always available                      |
+| §5.14  | M-Pesa payments          | Daraja STK Push direct integration, idempotent callback on `CheckoutRequestID`, sandbox + production         |
+| §5.17  | Admin dashboard (core)   | Overview KPIs, orders list + status transitions, reservations calendar, catering list, menu CRUD, reviews moderation, staff mgmt |
 
-The data model and tenant-scope wrapper are already in place — Phase 2 is UI
-and integration work, not a re-platform.
+### What's wired end-to-end
+
+- **Cart & checkout:** browse menu → add to cart → checkout (delivery/pickup/dine-in + M-Pesa/cash) → order status page that polls for M-Pesa confirmation.
+- **Order lifecycle:** customer places → kitchen dashboard notified via Socket.IO broadcast → staff moves through PREPARING → READY → DELIVERED → COMPLETED → customer can review.
+- **Notifications:** FCM tokens persisted to `NotificationToken` table; customer gets push on status change, staff gets push on new order/reservation/catering.
+- **Multi-tenant safety preserved:** customer & staff sessions re-check `restaurantId` on every request; M-Pesa callback resolves tenant from the order (Daraja doesn't know our slugs).
+
+### Staff auth (separate from customer auth)
+
+Per PRD §7.2 note, staff auth is intentionally separate from the customer NextAuth flow:
+
+- Staff use email + password only (no OAuth) — `src/lib/auth/staff.ts`.
+- Sessions are signed JWTs in a separate `majidos_staff_session` cookie, never shared with the customer `next-auth.session-token`.
+- Roles (`OWNER` / `MANAGER` / `KITCHEN` / `FRONT_OF_HOUSE`) gate every admin action.
+
+### M-Pesa Daraja integration
+
+Direct integration with Safaricom's Daraja API — no aggregator (per PRD §5.14 and GTSS's existing pattern on other projects).
+
+```
+customer confirms → server initiates STK Push → customer enters PIN
+→ Daraja callback hits /api/mpesa/callback (idempotent on CheckoutRequestID)
+→ order status updates → Socket.IO broadcast + FCM push
+```
+
+Required env vars (see `.env.example`):
+
+```env
+MPESA_CONSUMER_KEY=...
+MPESA_CONSUMER_SECRET=...
+MPESA_SHORTCODE=174379              # sandbox
+MPESA_PASSKEY=...
+MPESA_CALLBACK_URL=https://your-ngrok-url.lokal/api/mpesa/callback
+MPESA_ENV=sandbox                    # or "production"
+NEXT_PUBLIC_MPESA_ENABLED=true       # client flag — set when the above are filled in
+```
+
+If M-Pesa is not configured, the checkout UI hides the M-Pesa option and only
+shows cash-on-delivery/pickup. The rest of the order flow is unaffected.
+
+### Schema changes in Phase 2
+
+Migration `20260701210000_phase2_auth_notifications` adds:
+
+- `VerificationToken` — required by NextAuth v5 (email verification / magic links).
+- `NotificationToken` — persists FCM tokens so server-side notifications can actually fire (Phase 1 only logged them).
+- `Customer.passwordHash` — bcrypt hash for the Credentials provider.
+
+### Phase 2 demo accounts
+
+After running `bun run db:reset && bun run db:seed`:
+
+- **Customer:** `aisha@example.com` / `aisha-demo-2024` (has 1 completed order, eligible to review)
+- **Staff (OWNER):** `owner@majid.com` / `majid-owner-2024`
+- **Staff (MANAGER):** `manager@majid.com` / `majid-manager-2024`
+- **Staff (KITCHEN):** `kitchen@majid.com` / `majid-kitchen-2024`
 
 ---
 
-## 12. License & Credit
+## 12. What to Test Before Phase 3
+
+Phase 3 (Operations Layer — kitchen dashboard, QR table menus, loyalty, event
+space bookings, careers) builds on the Phase 2 order lifecycle and admin
+dashboard. Before starting Phase 3, verify each of the following end-to-end.
+
+### 12.1 Customer flow
+
+1. **Browse menu + add to cart** — `/majid-restaurant/menu` → click "Add to cart" on multiple items. Verify the cart icon in the header shows the count.
+2. **Cart edit** — `/majid-restaurant/cart` → change quantities, remove a line, clear all. Total should update.
+3. **Guest checkout (cash)** — `/majid-restaurant/checkout` → fill name/phone/address → choose "Cash on delivery" → "Place order". Should land on the order status page with status `CONFIRMED`.
+4. **Guest checkout (M-Pesa)** — set the `MPESA_*` env vars and `NEXT_PUBLIC_MPESA_ENABLED=true` → redo checkout choosing M-Pesa. Status should land on `PENDING_PAYMENT` and the page should poll. Trigger a sandbox callback (Daraja simulator or a manual POST to `/api/mpesa/callback`) → status should flip to `CONFIRMED`.
+5. **Order cancellation** — place an order, then on the order status page click "Cancel order" while still in DRAFT/PENDING_PAYMENT. Status should flip to `CANCELLED`.
+6. **Customer sign-up + sign-in** — `/majid-restaurant/sign-in` → "Create account" tab → sign up → should auto-sign-in and land on `/account`. Verify order history shows the just-placed order.
+7. **Review a completed order** — sign in as the demo customer (`aisha@example.com` / `aisha-demo-2024`) → go to the sample completed order → "Leave a review" → submit 5 stars + comment. Should land back on the order page. Verify the review does NOT yet appear on the homepage (it's pending moderation).
+8. **Reservation request** — `/majid-restaurant/reservations` → fill in name/phone/party size/time → submit. Should show the "Reservation requested!" confirmation screen.
+9. **Catering inquiry** — `/majid-restaurant/catering` → fill in name/phone/event date/guest count → submit. Should show the "Inquiry sent!" confirmation screen.
+
+### 12.2 Admin flow
+
+1. **Staff sign-in** — `/majid-restaurant/admin/sign-in` → `owner@majid.com` / `majid-owner-2024`. Should land on the admin Overview.
+2. **Overview KPIs** — verify Today's revenue, Orders today, Reservations today, New inquiries cards show non-zero values (seeded sample data should populate these).
+3. **Orders list + status transitions** — `/majid-restaurant/admin/orders` → pick the order you just placed as a customer → click "preparing" → "ready" → "completed". Verify status badge updates and the customer order status page reflects it.
+4. **Reservations list + confirm** — `/majid-restaurant/admin/reservations` → find the seeded James Kamau reservation → click "confirmed". Status should flip.
+5. **Catering list + workflow** — `/majid-restaurant/admin/catering` → find the seeded Janet Wanjiru inquiry → walk it through "contacted" → "quoted" → "confirmed" → "completed".
+6. **Menu CRUD** — `/majid-restaurant/admin/menu` → click "New item" → create a test item → verify it appears on the public menu. Edit the item → toggle "sold out" → verify it shows greyed-out on the public menu. Delete the item.
+7. **Review moderation** — `/majid-restaurant/admin/reviews` → find the pending review left by the demo customer → click "Publish" → verify it now appears on the homepage reviews section.
+8. **Staff management (OWNER only)** — `/majid-restaurant/admin/staff` → "Add staff" → create a new kitchen user → sign out → sign in as the new user → verify the Staff nav link is hidden (only OWNER sees it).
+9. **Role gating** — sign in as `kitchen@majid.com` / `majid-kitchen-2024` → verify you can see Orders but get blocked from Menu, Staff, Catering (role-gated).
+
+### 12.3 Multi-tenant safety
+
+1. Sign in as a customer of tenant A (Majid). Open a private window and visit a different tenant URL (once a second tenant exists). Verify you are NOT auto-signed-in — customer sessions are tenant-scoped.
+2. Sign in as staff of tenant A. Visit tenant B's `/admin` URL. Verify you're redirected to tenant B's admin sign-in page (the staff JWT for tenant A is rejected).
+
+### 12.4 Notifications (optional — requires env config)
+
+1. Set `FIREBASE_*` env vars. Enable notifications in the browser (click "Enable updates" on the homepage).
+2. Place an order. Within seconds you should get a push notification on the same device confirming the order.
+3. Have staff mark the order as "ready". You should get a second push notification.
+
+### 12.5 Real-time (optional — requires Socket.IO service)
+
+1. Deploy the external Socket.IO service (PRD §8 — not part of this zip) and set `NEXT_PUBLIC_SOCKET_URL` + `SOCKET_SERVER_SECRET`.
+2. Open the admin orders page in one tab. Place a new order in another tab. The admin tab should receive the new order without a manual refresh.
+
+### 12.6 Known limitations to flag for Phase 3
+
+- **Kitchen dashboard** is the admin Orders page in this build — Phase 3 ships the dedicated tablet-optimized view (PRD §5.16) with three columns (Preparing / Ready / Delivered) and large-touch-target buttons.
+- **QR table menus** are not in this build (PRD §5.24 — Phase 3). The DINE_IN fulfillment type works but the customer types the table number manually.
+- **Loyalty points** are accrued on the Customer model (`loyaltyPoints` column) but there's no accrual logic yet — Phase 3 ships LoyaltyRule evaluation.
+- **Reservation reminders** (PRD §5.5: "reminder notification 2 hours before reservation time") require a cron/scheduler — not yet wired. Phase 3 will add it.
+- **M-Pesa sandbox testing** requires a publicly-reachable callback URL — use ngrok or cloudflared for local dev.
+- **Operating hours enforcement:** the checkout doesn't currently block orders outside operating hours — Phase 3 should add this guard.
+
+---
+
+## 13. License & Credit
 
 Built by **GTSS (Great Thumbs Software Solutions)** as a speculative pitch
 build for Majid Restaurant, Nakuru. The codebase is a reusable multi-tenant
