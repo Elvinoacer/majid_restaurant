@@ -1,0 +1,19 @@
+{
+  "name": "Majid Restaurant",
+  "short_name": "Majid",
+  "description": "Nakuru's home of biryani — order online.",
+  "start_url": "/majid-restaurant",
+  "display": "standalone",
+  "background_color": "#f7f1e6",
+  "theme_color": "#c2410c",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "orientation": "portrait",
+  "gcm_sender_id": "1039538005075"
+}
