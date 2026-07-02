@@ -33,6 +33,7 @@ import {
 import { db as prisma } from "@/lib/db";
 import type { FulfillmentType, OrderStatus, PaymentMethod } from "@/generated/prisma/client";
 import { accrueLoyaltyForOrder } from "@/lib/loyalty/actions";
+import { trackEventInternal } from "@/lib/analytics/actions";
 
 const CartLineSchema = z.object({
   menuItemId: z.string().min(1),
@@ -135,6 +136,20 @@ export async function createOrderFromCart(
     },
     include: { items: true },
   });
+
+  // Phase 4 — analytics: record that a visitor started an order (cart → checkout).
+  // Used by the conversion-funnel metric on the analytics dashboard.
+  void trackEventInternal(
+    restaurant.id,
+    "order_started",
+    {
+      orderId: order.id,
+      fulfillmentType: data.fulfillmentType,
+      total,
+      itemCount: data.lines.reduce((s, l) => s + l.quantity, 0),
+    },
+    customer?.id ?? null,
+  );
 
   return { ok: true, data: { orderId: order.id, total } };
 }
@@ -369,6 +384,22 @@ export async function updateOrderStatus(
     // Loyalty accrual happens once, on the first transition into COMPLETED.
     // Idempotent — re-running on an already-accrued order is a no-op.
     ...(isCompleting ? [accrueLoyaltyForOrder(order.id)] : []),
+    // Phase 4 — analytics: record order_completed on first transition into COMPLETED.
+    // Used by the conversion-funnel + returning-customer metrics.
+    ...(isCompleting
+      ? [
+          trackEventInternal(
+            restaurant.id,
+            "order_completed",
+            {
+              orderId: order.id,
+              total: order.total,
+              customerId: order.customerId ?? null,
+            },
+            order.customerId ?? null,
+          ),
+        ]
+      : []),
   ]);
 
   revalidatePath(`/${restaurant.slug}/admin/orders`);

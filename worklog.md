@@ -180,3 +180,89 @@ Stage Summary:
 - Loyalty accrual is automatic + idempotent — fires once per order's first transition to COMPLETED, guards against re-running on already-accrued orders. Customer.loyaltyPoints is the cached balance; LoyaltyPointLedger is the source of truth.
 - .git directory preserved untouched (only files added/edited in src/, prisma/, public/uploads/cv/).
 - Deliverable: full project zipped to /home/z/my-project/download/majid_restaurant_clone-phase3.zip.
+
+---
+Task ID: phase-4
+Agent: main (super-z)
+Task: Build Phase 4 (Intelligence Layer — analytics dashboard, AI food recommendation, meal builder) of MajidOS per requirements.md PRD §9 Phase 4.
+
+Work Log:
+- Read full Phase 4 scope from PRD §5.18 (Analytics), §5.22 (AI recommendation), §5.23 (Meal builder) + §7.2 schema notes + §9 Phase 4 exit criteria ("Owner has a weekly-checkable dashboard of real business numbers; the site has at least one genuinely novel interaction that a competitor's brochure site doesn't").
+- Reviewed existing Phase 0+1+2+3 codebase: schema, tenant-scope, proxy.ts, admin shell + admin overview, orders actions, menu actions + helpers, cart store, seed.ts, site-header/footer, home-page.
+- Schema migration 20260703000000_phase4_analytics_events:
+  * Added AnalyticsEvent model — append-only event log used to compute the conversion funnel + future behavioural metrics. Fields: id, restaurantId, customerId (nullable, set only when signed in), sessionId (opaque SHA-256 hash of IP + user-agent for de-duping), eventType (enum), payloadJson (JSON-encoded context), createdAt.
+  * Added AnalyticsEventType enum: menu_view, order_started, order_completed, recommendation_used, meal_builder_used.
+  * Indexed on (restaurantId, eventType, createdAt), (restaurantId, createdAt), customerId, sessionId — every analytics query hits one of these.
+  * Updated Restaurant + Customer relations to include analyticsEvents.
+- Updated tenant-scope.ts to expose the analyticsEvent model wrapper.
+- Analytics module (src/lib/analytics/actions.ts):
+  * trackEvent(eventType, payload) — Server Action for client components (used by AnalyticsTracker). Derives sessionId from IP+UA via SHA-256 (opaque, no PII). Never throws — analytics failures must never break customer flows.
+  * trackEventInternal(restaurantId, ...) — internal helper for other Server Actions to record events with explicit customer context.
+  * getRevenueTrend(days) — daily revenue + order count, fills missing days with zero so the chart is continuous.
+  * getPeakHours(days) — 7×24 day-of-week × hour matrix for the heatmap.
+  * getTopItems(limit, days) — top N items by quantity sold. Implementation note: OrderItem doesn't have a direct restaurantId column, so we query via tenant.order.findMany and aggregate client-side (matches the existing /admin/orders pattern).
+  * getBestSellingDrinks(limit, days) — same, filtered to items in the Drinks category.
+  * getConversionFunnel(days) — menu views (de-duped by session+day) → orders started → orders completed, with conversion percentages.
+  * getReturningCustomerRate(days) — % of customers in the window with 2+ orders (PRD calls this out explicitly).
+  * getAnalyticsKpis() — headline KPIs for the dashboard cards, parallelised.
+  * getAnalyticsForDashboard(days) — convenience wrapper that enforces staff auth (OWNER+MANAGER) before returning all aggregations.
+- Orders actions updated: createOrderFromCart fires `order_started` event, updateOrderStatus fires `order_completed` event on first transition into COMPLETED (idempotent — guarded by the same isCompleting flag used for loyalty accrual).
+- AnalyticsTracker (src/components/site/analytics-tracker.tsx): invisible client component, fires once on mount. Mounted on /menu page (menu_view event), /recommend page (recommendation_used event), /meal-builder page (meal_builder_used event).
+- Admin analytics dashboard (PRD §5.18):
+  * Page: /<slug>/admin/analytics (OWNER+MANAGER only). Catches StaffAuthError from requireStaff and redirects to sign-in.
+  * Client component admin-analytics-dashboard.tsx: 8 KPI cards (revenue, orders, AOV, menu views, conversion %, returning %, peak hour, top seller), revenue trend area chart, conversion funnel (3 stacked bars with stage-to-stage %), peak hours heatmap (7×24 CSS grid on 6-stop amber scale), top items bar chart, best-selling drinks bar chart, returning customer donut.
+  * Date range selector: 7 / 30 / 90 days, all charts refresh via URL param.
+  * Mobile-first: KPIs collapse to 2-column grid, charts use ResponsiveContainer, heatmap is horizontally scrollable on small screens.
+  * All charts use Recharts (already in the dependency tree — no new packages needed).
+- Added "Analytics" to AdminShell NAV (BarChart3 icon, OWNER+MANAGER only).
+- Admin overview page updated: replaced the 4th quick-link (Careers — already surfaced in the Quick links section at the bottom) with Analytics; added a 7-day revenue sparkline section using inline SVG (no chart library — purely decorative teaser to entice the owner to click through to the full analytics dashboard).
+- AI food recommendation engine (src/lib/recommend/recommend.ts):
+  * Pure function, no DB access — callers pass in the tenant's menu items already loaded.
+  * Tokenise query (lowercase, ASCII, stop-worded) → expand each token against a curated synonym map (spicy → hot/chilli, light → fresh/salad, hungry → rice/biryani/grill/beef/mutton, etc.) → build per-item haystack (name + description + tags + dietary flags) → score (tag exact +5, name substring +4, dietary flag +3, description substring +1, popular boost +1) → return top N with score > 0, ranked by score then popularity.
+  * Each result includes matchedOn[] — the tags/keywords that drove the score — so recommendations are transparent, not opaque.
+  * PRD §5.22 explicitly endorses this tag-based approach as "genuinely sufficient for a menu of realistic size, and avoids adding a per-request AI API cost to a free-tier-conscious deployment." Documented upgrade path: swap the recommend() function for an LLM call — the server-action signature stays the same.
+  * Curated 8 quick-prompt chips: "I'm hungry", "Something spicy", "Light lunch", "Vegetarian", "Sweet tooth", "Cold drink", "Comfort food", "Best sellers" — picked to showcase the range of the matcher (heat, diet, mood, cuisine).
+- AI recommender server action (src/lib/recommend/actions.ts): getRecommendations(query) loads tenant menu items (filtered to isAvailable), runs the matcher, fires a `recommendation_used` analytics event (fire-and-forget), returns ranked suggestions with match reasons.
+- AI recommender UI (src/components/site/ai-recommender.tsx):
+  * Chat-like UI: free-text input + Suggest button, quick-prompt chips below (when no results yet), ranked suggestion cards.
+  * Each card: image, name, price, description (clamped), match reasons + dietary flags as small chips, "Add" + "WhatsApp" action buttons.
+  * Two variants: "full" (dedicated page) and "compact" (homepage section).
+  * Mobile-first: input is sticky-friendly, chips wrap, cards stack.
+- Dedicated /<slug>/recommend page: mounts the full AiRecommender + AnalyticsTracker (recommendation_used) + a "Or browse the menu" section below for visitors who'd rather explore than describe.
+- Homepage updated: added an "AI Food Recommendation" section between Popular Today and Reviews — mounts the compact AiRecommender with a "Full experience" link to /recommend.
+- Meal builder (src/components/site/meal-builder.tsx):
+  * 4-stage flow: Base → Protein → Drink → Dessert. Items pulled from menu where owner has tagged mealBuilderStage.
+  * Each stage supports multiple items with quantity steppers.
+  * Live total in a sticky bottom bar (mobile-first per PRD §6 mobile-first requirement).
+  * Stepper at the top shows progress through stages with item counts per stage; can jump back to completed stages but not forward past current.
+  * "Add all to cart" sends every selected line to the cart store and routes to /cart for checkout.
+  * Gated on restaurant.comboBuilderEnabled — the page that mounts this component 404s when the flag is off, so the component itself doesn't need a fallback.
+- Meal builder page /<slug>/meal-builder: server component, 404s if !comboBuilderEnabled, loads available menu items, mounts MealBuilder + AnalyticsTracker (meal_builder_used).
+- SiteHeader + SiteFooter updated: added "Recommend" link (always shown) + "Build a Combo" link (gated on comboBuilderEnabled). Layout now passes comboBuilderEnabled down to both.
+- Tenant layout updated: passes restaurant.comboBuilderEnabled to SiteHeader + SiteFooter.
+- Seed script updates (Phase 4 section):
+  * Tagged 3 more items with mealBuilderStage (Coconut Rice → base, Pilau Nyama → base, Tusker Lager → drink) so every stage has 3+ options.
+  * Created 5 new demo customers (Brian, Faith, Peter, Mary, Daniel) — gives the returning-customer metric real signal.
+  * Generated ~150 historical COMPLETED orders across 60 days using a deterministic PRNG (mulberry32, seed=42). Weighted toward weekends (2-6 orders) vs weekdays (1-3). 70% chance of peak-hour (12-14, 19-21) vs 30% off-peak. Items biased toward popular items + drinks to match the discovery notes' "best biryani in Nakuru" framing.
+  * Generated 220 analytics events across 30 days (weighted: 4x menu_view, 2x order_started, 1x order_completed, 2x recommendation_used, 1x meal_builder_used) so the conversion funnel shows numbers on first load.
+  * Cleanup on re-seed: deletes prior analyticsEvents + bulk-generated COMPLETED orders older than 2 days (keeps the Phase 2 sample order for Aisha). Loyalty ledger entries are NOT backfilled for synthetic historical orders — real accrual happens going forward as new orders complete.
+- Documentation:
+  * README.md expanded with §16 (Phase 4 — Intelligence Layer) documenting the analytics dashboard, AI recommendation engine, meal builder, and seed data updates; §17 (What to Test for Phase 4) with detailed test steps for each feature + multi-tenant safety checks.
+  * .env.example unchanged — Phase 4 introduces no new env vars (analytics is internal, recommendation is tag-based not LLM-based, meal builder uses existing cart infrastructure).
+- ESLint config: added patch.js to ignores (pre-existing one-time dev script from Phase 2 that was triggering @typescript-eslint/no-require-imports; not from Phase 4 work but worth ignoring so the lint command runs clean).
+- TypeScript: passes clean (0 errors).
+- Lint: passes clean (0 errors, 0 warnings).
+- Build: `next build` succeeds — 41 routes total compile (5 static + 36 dynamic), up from 33 in Phase 3. New Phase 4 routes: /admin/analytics, /recommend, /meal-builder.
+
+Stage Summary:
+- Phase 4 of MajidOS complete: all 3 PRD §9 Phase 4 features implemented.
+- Exit criteria met:
+  * "Owner has a weekly-checkable dashboard of real business numbers" → /admin/analytics shows 8 KPI cards + 6 charts (revenue trend, conversion funnel, peak hours heatmap, top items, best drinks, returning customer rate) with a 7/30/90-day range selector. Seed data populates ~150 historical orders + 220 analytics events so the dashboard has signal on first load.
+  * "The site has at least one genuinely novel interaction that a competitor's brochure site doesn't" → two novel interactions shipped: (1) AI food recommendation with tag-based craving matcher — "I'm hungry" / "something spicy" → ranked menu suggestions with transparent match reasons; (2) 4-stage meal builder with live total + add-all-to-cart, gated on tenant opt-in.
+- Multi-tenant safety preserved throughout: tenantDb() wrapper used on every analytics query, staff sessions re-check restaurantId on every request, analytics events are tenant-scoped at write time, recommendation engine operates on tenant-scoped menu items loaded via tenant.menuItem.findMany.
+- Privacy: no PII stored on analytics event rows. sessionId is a SHA-256 hash of IP+UA — opaque, used only for de-duping menu views within a browsing session.
+- Performance: all aggregations run server-side in the page server component; the client dashboard receives pre-aggregated data and only renders charts. Peak hours is O(orders) — no N+1.
+- Upgrade paths documented: AI recommendation can swap to an LLM call (same server-action signature); analytics event types are an enum so new metric types are additive.
+- .git directory preserved untouched (only files added/edited in src/, prisma/, eslint.config.mjs, README.md, worklog.md).
+- Deliverable: full project zipped to /home/z/my-project/download/majid_restaurant_clone-phase4.zip.
+

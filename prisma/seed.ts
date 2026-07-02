@@ -858,9 +858,253 @@ async function main() {
   // Touch the waiter posting to make sure both have entries in the DB.
   void waiterPosting;
 
+  // ── Phase 4 seed data ────────────────────────────────────
+  // The analytics dashboard (PRD §5.18) is most compelling with real-looking
+  // historical data. We generate ~60 days of synthetic orders (1–6 per day,
+  // weighted toward peak hours) using a deterministic PRNG so the seed is
+  // reproducible. Also seeds:
+  //   * 5 demo customers (so the returning-customer rate has signal)
+  //   * A handful of menu_view / order_started / order_completed analytics
+  //     events so the conversion funnel shows numbers on first load.
+  //   * `mealBuilderStage` on Coconut Rice + Tusker Lager (more items per
+  //     stage so the meal builder feels populated).
+
+  // Tag two more items with mealBuilderStage so every stage has 3+ options.
+  const coconutRice = await db.menuItem.findFirst({
+    where: { restaurantId: restaurant.id, name: "Coconut Rice" },
+  });
+  if (coconutRice) {
+    await db.menuItem.update({
+      where: { id: coconutRice.id },
+      data: { mealBuilderStage: "base" },
+    });
+  }
+  const tusker = await db.menuItem.findFirst({
+    where: { restaurantId: restaurant.id, name: "Tusker Lager (500ml)" },
+  });
+  if (tusker) {
+    await db.menuItem.update({
+      where: { id: tusker.id },
+      data: { mealBuilderStage: "drink" },
+    });
+  }
+  const pilau = await db.menuItem.findFirst({
+    where: { restaurantId: restaurant.id, name: "Pilau Nyama" },
+  });
+  if (pilau) {
+    await db.menuItem.update({
+      where: { id: pilau.id },
+      data: { mealBuilderStage: "base" },
+    });
+  }
+  console.log(`  ✓ Tagged extra items with mealBuilderStage`);
+
+  // Create 5 demo customers so the returning-customer metric has data.
+  const phase4Customers = await Promise.all(
+    [
+      { name: "Brian Otieno", email: "brian@example.com", phone: "+254711223344" },
+      { name: "Faith Wanjiru", email: "faith@example.com", phone: "+254722334455" },
+      { name: "Peter Kamau", email: "peter@example.com", phone: "+254733445566" },
+      { name: "Mary Atieno", email: "mary@example.com", phone: "+254744556677" },
+      { name: "Daniel Kiptoo", email: "daniel@example.com", phone: "+254755667788" },
+    ].map(async (c) => {
+      const existing = await db.customer.findUnique({
+        where: { restaurantId_email: { restaurantId: restaurant.id, email: c.email } },
+      });
+      if (existing) return existing;
+      return db.customer.create({
+        data: {
+          restaurantId: restaurant.id,
+          email: c.email,
+          name: c.name,
+          phone: c.phone,
+          passwordHash: await bcrypt.hash("demo1234", 10),
+        },
+      });
+    }),
+  );
+  console.log(`  ✓ Ensured ${phase4Customers.length} demo customers for analytics`);
+
+  // Load all menu items so we can pick random ones for each order.
+  const allMenuItems = await db.menuItem.findMany({
+    where: { restaurantId: restaurant.id, isAvailable: true },
+    select: { id: true, name: true, price: true },
+  });
+  // Bias order item selection toward popular items + biryani (matches the
+  // discovery notes' "best biryani in Nakuru" framing).
+  const popularItems = allMenuItems.filter((m) =>
+    ["Chicken Biryani", "Mutton Biryani", "Mango Lassi", "Nyama Choma (Goat)", "Chapati & Ndengu", "Mandazi & Mahamri Platter"].includes(m.name),
+  );
+  const drinksOnly = allMenuItems.filter((m) =>
+    ["Mango Lassi", "Fresh Passion Juice", "Tusker Lager (500ml)", "Karibu Chai (Masala Tea)"].includes(m.name),
+  );
+  const pick = <T,>(arr: T[], rngFn: () => number) => arr[Math.floor(rngFn() * arr.length)];
+
+  // Deterministic PRNG (mulberry32) so re-seeding produces the same data.
+  function mulberry32(seed: number) {
+    let a = seed;
+    return () => {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(42);
+  const fulfillmentTypes: ("DELIVERY" | "PICKUP" | "DINE_IN")[] = ["DELIVERY", "PICKUP", "DINE_IN"];
+
+  // Generate ~60 days of historical orders.
+  // Skip the existing demo order (created yesterday for Aisha) — that one
+  // stays. We just clear older analyticsEvents + the bulk-generated historical
+  // orders from a previous run before re-inserting.
+  await db.analyticsEvent.deleteMany({ where: { restaurantId: restaurant.id } });
+  // Only delete COMPLETED historical orders older than 2 days (keep the
+  // Phase 2 sample order for Aisha, which is yesterday's).
+  const twoDaysAgo = new Date();
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  await db.order.deleteMany({
+    where: {
+      restaurantId: restaurant.id,
+      status: "COMPLETED",
+      createdAt: { lt: twoDaysAgo },
+    },
+  });
+
+  let generatedOrders = 0;
+  const allCustomersIncludingAisha = [demoCustomer, ...phase4Customers];
+  // Peak-hour weighting: most orders between 12-14 and 19-21.
+  const peakHours = [12, 13, 19, 20, 21];
+  const offPeakHours = [8, 9, 10, 11, 15, 16, 17, 18, 22];
+  for (let dayOffset = 60; dayOffset >= 1; dayOffset--) {
+    const date = new Date();
+    date.setDate(date.getDate() - dayOffset);
+    // Random 1–6 orders per day, weighted toward weekends.
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const orderCount = isWeekend
+      ? 2 + Math.floor(rng() * 5)  // 2–6 on weekends
+      : 1 + Math.floor(rng() * 3); // 1–3 on weekdays
+
+    for (let i = 0; i < orderCount; i++) {
+      // Pick hour: 70% chance peak, 30% chance off-peak.
+      const hour = rng() < 0.7 ? pick(peakHours, rng) : pick(offPeakHours, rng);
+      const minute = Math.floor(rng() * 60);
+      date.setHours(hour, minute, 0, 0);
+
+      // Pick 1–3 line items.
+      const lineCount = 1 + Math.floor(rng() * 3);
+      const lines: Array<{ menuItemId: string; name: string; unitPrice: number; quantity: number }> = [];
+      for (let l = 0; l < lineCount; l++) {
+        // 60% chance of a popular item, 30% chance of a drink, 10% chance anything.
+        const r = rng();
+        const item =
+          r < 0.6 ? pick(popularItems, rng)
+          : r < 0.9 ? pick(drinksOnly, rng)
+          : pick(allMenuItems, rng);
+        if (!item) continue;
+        // Avoid duplicates within the same order.
+        if (lines.some((x) => x.menuItemId === item.id)) continue;
+        lines.push({
+          menuItemId: item.id,
+          name: item.name,
+          unitPrice: item.price,
+          quantity: 1 + Math.floor(rng() * 2),
+        });
+      }
+      if (lines.length === 0) continue;
+
+      const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+      const total = subtotal;
+      const customer = pick(allCustomersIncludingAisha, rng);
+      const fulfillmentType = pick(fulfillmentTypes, rng);
+
+      const createdOrder = await db.order.create({
+        data: {
+          restaurantId: restaurant.id,
+          branchId: branch.id,
+          customerId: customer.id,
+          guestName: customer.name ?? "Guest",
+          guestPhone: customer.phone ?? "+254700000000",
+          status: "COMPLETED",
+          fulfillmentType,
+          scheduledFor: null,
+          deliveryAddress: fulfillmentType === "DELIVERY" ? "Sample delivery address, Nakuru" : null,
+          specialInstructions: null,
+          subtotal,
+          total,
+          paymentMethod: rng() < 0.7 ? "MPESA" : "CASH",
+          paidAt: date,
+          createdAt: date,
+          updatedAt: date,
+          items: {
+            create: lines.map((l) => ({
+              menuItemId: l.menuItemId,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              notes: null,
+            })),
+          },
+        },
+      });
+      generatedOrders++;
+      // Skip loyalty ledger for these synthetic historical orders — the
+      // analytics dashboard doesn't read from it, and backfilling 60 days
+      // of ledger entries would inflate the demo customer's balance beyond
+      // realism. Real accrual happens going forward as new orders complete.
+      void createdOrder;
+    }
+  }
+  console.log(`  ✓ Inserted ${generatedOrders} historical COMPLETED orders across 60 days`);
+
+  // Seed analytics events: ~200 menu_views, ~80 order_started, ~50
+  // order_completed, ~20 recommendation_used, ~5 meal_builder_used over the
+  // last 30 days. Distributed via PRNG.
+  const eventTypes: ("menu_view" | "order_started" | "order_completed" | "recommendation_used" | "meal_builder_used")[] = [
+    "menu_view", "menu_view", "menu_view", "menu_view", // 4x weight
+    "order_started", "order_started", // 2x weight
+    "order_completed", // 1x weight
+    "recommendation_used", "recommendation_used", // 2x weight
+    "meal_builder_used", // 1x weight
+  ];
+  let generatedEvents = 0;
+  for (let i = 0; i < 220; i++) {
+    const eventType = pick(eventTypes, rng);
+    const daysAgo = Math.floor(rng() * 30);
+    const eventDate = new Date();
+    eventDate.setDate(eventDate.getDate() - daysAgo);
+    eventDate.setHours(Math.floor(rng() * 24), Math.floor(rng() * 60), 0, 0);
+
+    // For order_started/order_completed, link to a customer half the time.
+    const linkCustomer = rng() < 0.5;
+    const customer = linkCustomer ? pick(allCustomersIncludingAisha, rng) : null;
+
+    await db.analyticsEvent.create({
+      data: {
+        restaurantId: restaurant.id,
+        customerId: customer?.id ?? null,
+        sessionId: `seed-${Math.floor(rng() * 1000).toString(36)}`,
+        eventType,
+        payloadJson: JSON.stringify(
+          eventType === "recommendation_used"
+            ? { query: pick(["something spicy", "I'm hungry", "light lunch", "vegetarian"], rng) }
+            : eventType === "menu_view"
+              ? { source: "menu_page" }
+              : {},
+        ),
+        createdAt: eventDate,
+      },
+    });
+    generatedEvents++;
+  }
+  console.log(`  ✓ Inserted ${generatedEvents} analytics events across 30 days`);
+
   console.log(`\n→ Seed complete. Visit /${MAJID_SLUG} to view the demo.`);
   console.log(`→ Admin: /${MAJID_SLUG}/admin/sign-in (owner@majid.com / majid-owner-2024)`);
   console.log(`→ Kitchen: /${MAJID_SLUG}/admin/kitchen (kitchen@majid.com / majid-kitchen-2024)`);
+  console.log(`→ Analytics: /${MAJID_SLUG}/admin/analytics (sign in as owner or manager)`);
+  console.log(`→ Recommend: /${MAJID_SLUG}/recommend`);
+  console.log(`→ Meal Builder: /${MAJID_SLUG}/meal-builder`);
 }
 
 main()

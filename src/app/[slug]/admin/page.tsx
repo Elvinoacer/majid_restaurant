@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, ShoppingBag, Calendar, UtensilsCrossed, Banknote, TrendingUp, ChefHat, Gift, Briefcase, QrCode } from "lucide-react";
+import { ArrowRight, ShoppingBag, Calendar, UtensilsCrossed, Banknote, TrendingUp, ChefHat, Gift, Briefcase, QrCode, BarChart3 } from "lucide-react";
 import { getContextRestaurant } from "@/lib/restaurant/context";
-import { db } from "@/lib/db";
 import { formatKsh } from "@/lib/whatsapp/order";
+import { getRevenueTrend } from "@/lib/analytics/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,11 @@ export default async function AdminOverviewPage({
   });
   const todaysRevenue = todaysOrders.reduce((s, o) => s + o.total, 0);
 
+  // Phase 4 — last 7 days revenue for the sparkline teaser on the overview.
+  const last7dRevenue = await getRevenueTrend(7);
+  const last7dTotal = last7dRevenue.reduce((s, r) => s + r.revenue, 0);
+  const last7dOrders = last7dRevenue.reduce((s, r) => s + r.orders, 0);
+
   const upcomingReservations = await tenant.reservation.findMany({
     where: {
       reservedFor: { gte: new Date(), lt: todayEnd },
@@ -51,9 +56,6 @@ export default async function AdminOverviewPage({
     ? await tenant.eventBooking.count({ where: { status: "NEW" } })
     : 0;
   const activeJobPostings = await tenant.jobPosting.count({ where: { isActive: true } });
-  const newApplications = await db.jobApplication.count({
-    where: { jobPosting: { restaurantId: restaurant.id }, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-  });
 
   // Active orders (kitchen queue snapshot)
   const activeOrders = await tenant.order.findMany({
@@ -98,7 +100,7 @@ export default async function AdminOverviewPage({
         />
       </div>
 
-      {/* Phase 3 quick links */}
+      {/* Phase 3 + Phase 4 quick links */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <QuickLink
           href={`/${slug}/admin/kitchen`}
@@ -119,12 +121,37 @@ export default async function AdminOverviewPage({
           tone="blue"
         />
         <QuickLink
-          href={`/${slug}/admin/careers`}
-          label={`Careers${newApplications > 0 ? ` (${newApplications} new)` : ""}`}
-          icon={<Briefcase className="h-4 w-4" />}
+          href={`/${slug}/admin/analytics`}
+          label="Analytics"
+          icon={<BarChart3 className="h-4 w-4" />}
           tone="green"
         />
       </div>
+
+      {/* Phase 4 — 7-day revenue sparkline teaser */}
+      <section className="mt-4 rounded-xl border border-border bg-card p-4">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              Last 7 days
+            </p>
+            <p className="mt-0.5 font-display text-xl font-bold">
+              KSh {formatKsh(last7dTotal)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {last7dOrders} order{last7dOrders === 1 ? "" : "s"}
+            </p>
+          </div>
+          <Link
+            href={`/${slug}/admin/analytics`}
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            Full analytics <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        {/* Inline SVG sparkline — no chart library needed for 7 data points. */}
+        <Sparkline points={last7dRevenue.map((r) => r.revenue)} />
+      </section>
 
       {/* Active orders */}
       <section className="mt-6">
@@ -315,6 +342,48 @@ function KpiCard({
       </div>
       <p className="mt-2 font-display text-xl font-bold sm:text-2xl">{value}</p>
     </div>
+  );
+}
+
+/**
+ * Inline SVG sparkline — tiny 7-point revenue trend on the admin overview.
+ * No chart library needed; this is purely decorative to entice the owner to
+ * click through to the full analytics dashboard.
+ */
+function Sparkline({ points }: { points: number[] }) {
+  if (points.length === 0) {
+    return <div className="mt-3 h-12 rounded-md bg-muted/50" />;
+  }
+  const w = 280;
+  const h = 48;
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const range = Math.max(max - min, 1);
+  const step = points.length > 1 ? w / (points.length - 1) : w;
+  const pathData = points
+    .map((p, i) => {
+      const x = i * step;
+      const y = h - ((p - min) / range) * (h - 4) - 2;
+      return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const areaData = `${pathData} L ${w} ${h} L 0 ${h} Z`;
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className="mt-3 h-12 w-full"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#d97706" stopOpacity={0.4} />
+          <stop offset="100%" stopColor="#d97706" stopOpacity={0.05} />
+        </linearGradient>
+      </defs>
+      <path d={areaData} fill="url(#spark-fill)" />
+      <path d={pathData} fill="none" stroke="#d97706" strokeWidth={2} />
+    </svg>
   );
 }
 

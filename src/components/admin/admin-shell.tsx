@@ -17,6 +17,7 @@ import {
   CalendarDays,
   Briefcase,
   QrCode,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ const NAV: Array<{ href: string; label: string; icon: typeof LayoutDashboard; ro
   { href: "/loyalty", label: "Loyalty", icon: Gift, roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
   { href: "/reviews", label: "Reviews", icon: Star, roles: ["OWNER", "MANAGER"] },
   { href: "/careers", label: "Careers", icon: Briefcase, roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, roles: ["OWNER", "MANAGER"] },
   { href: "/staff", label: "Staff", icon: Users, roles: ["OWNER"] },
 ];
 

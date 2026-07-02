@@ -9,6 +9,7 @@ type SiteFooterProps = {
   address: string;
   whatsappPhone: string;
   hasEventSpace?: boolean;
+  comboBuilderEnabled?: boolean;
 };
 
 export function SiteFooter({
@@ -19,6 +20,7 @@ export function SiteFooter({
   address,
   whatsappPhone,
   hasEventSpace,
+  comboBuilderEnabled,
 }: SiteFooterProps) {
   const base = `/${slug}`;
   return (
@@ -47,6 +49,14 @@ export function SiteFooter({
           <Link href={`${base}/menu`} className="text-sm text-foreground/80 hover:text-accent">
             Menu
           </Link>
+          <Link href={`${base}/recommend`} className="text-sm text-foreground/80 hover:text-accent">
+            Recommend a dish
+          </Link>
+          {comboBuilderEnabled && (
+            <Link href={`${base}/meal-builder`} className="text-sm text-foreground/80 hover:text-accent">
+              Build a combo
+            </Link>
+          )}
           <Link href={`${base}/reservations`} className="text-sm text-foreground/80 hover:text-accent">
             Reservations
           </Link>

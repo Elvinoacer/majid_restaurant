@@ -127,6 +127,7 @@ export function tenantDb(restaurantId: string) {
     restaurantTable: makeTenantModel(prisma.restaurantTable, restaurantId),
     branch: makeTenantModel(prisma.branch, restaurantId),
     notificationToken: makeTenantModel(prisma.notificationToken, restaurantId),
+    analyticsEvent: makeTenantModel(prisma.analyticsEvent, restaurantId),
     aboutContent: {
       findUnique: (args?: any) =>
         prisma.aboutContent.findUnique({

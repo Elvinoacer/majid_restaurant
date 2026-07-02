@@ -1,4 +1,5 @@
 import { MenuBrowser } from "@/components/site/menu-browser";
+import { AnalyticsTracker } from "@/components/site/analytics-tracker";
 import { getContextRestaurant } from "@/lib/restaurant/context";
 import { withTagsList } from "@/lib/menu";
 import type { MenuCategory, MenuItem } from "@/generated/prisma/client";
@@ -13,6 +14,10 @@ export const dynamic = "force-dynamic";
  * Mobile-first, sticky category chips, search-as-you-type across name +
  * description + tags, sold-out items shown greyed-out rather than hidden,
  * WhatsApp ordering deep link on each item.
+ *
+ * Phase 4: mounts an invisible <AnalyticsTracker> to fire a `menu_view`
+ * event on first load. Used by the conversion-funnel metric on the
+ * analytics dashboard.
  */
 export default async function MenuPage({
   params,
@@ -37,6 +42,8 @@ export default async function MenuPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <AnalyticsTracker restaurantSlug={restaurant.slug} eventType="menu_view" />
+
       <header className="mb-5 flex flex-col gap-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="font-display text-2xl font-bold text-foreground sm:text-3xl">

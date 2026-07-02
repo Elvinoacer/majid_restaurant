@@ -66,6 +66,7 @@ model Restaurant {
   tables             RestaurantTable[]
   aboutContent       AboutContent?
   notificationTokens NotificationToken[]
+  analyticsEvents    AnalyticsEvent[]
 
   @@index([slug])
 }
@@ -159,6 +160,7 @@ model Customer {
   addresses  CustomerAddress[]
   notificationTokens NotificationToken[] @relation("CustomerTokens")
   loyaltyLedger LoyaltyPointLedger[]
+  analyticsEvents AnalyticsEvent[]
 
   @@unique([restaurantId, email])
   @@index([restaurantId])
@@ -582,4 +584,38 @@ model AboutContent {
   hygieneStandards String?
   sourcing     String?
   updatedAt    DateTime @updatedAt
+}
+
+// ─── ANALYTICS (Phase 4, PRD §5.18) ───────────────────────
+// Append-only event log used to compute the conversion funnel
+// (menu views → orders started → orders completed), peak-hour heatmaps,
+// and any future behavioural metric the owner wants to inspect weekly.
+//
+// Privacy: no PII is stored on the event row. `customerId` is set only when
+// the visitor is signed in. `sessionId` is an opaque hash of IP + user-agent
+// so we can dedupe repeated menu views from the same browser without tracking
+// identity. Rows are tenant-scoped like every other model.
+enum AnalyticsEventType {
+  menu_view          // visitor loaded the /menu page
+  order_started      // visitor created a DRAFT order (cart → checkout)
+  order_completed    // order transitioned into COMPLETED status
+  recommendation_used // visitor clicked "show me recommendations" / a suggestion
+  meal_builder_used  // visitor opened the meal builder flow
+}
+
+model AnalyticsEvent {
+  id            String             @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customerId    String?
+  customer      Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  sessionId     String?            // opaque hash; null for staff-only events
+  eventType     AnalyticsEventType
+  payloadJson   String             @default("{}") // JSON-encoded context payload
+  createdAt     DateTime           @default(now())
+
+  @@index([restaurantId, eventType, createdAt])
+  @@index([restaurantId, createdAt])
+  @@index([customerId])
+  @@index([sessionId])
 }

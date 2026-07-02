@@ -686,7 +686,189 @@ dashboard. Before starting Phase 3, verify each of the following end-to-end.
 
 ---
 
-## 13. License & Credit
+## 16. Phase 4 — Intelligence Layer
+
+Phase 4 (PRD §9 Phase 4) ships the three "intelligence" features: analytics,
+AI food recommendation, and meal builder. The exit criteria: the owner has a
+weekly-checkable dashboard of real business numbers, and the site has at
+least one genuinely novel interaction a competitor's brochure site doesn't.
+
+### 16.1 Analytics dashboard (PRD §5.18)
+
+**Route:** `/<slug>/admin/analytics` — OWNER + MANAGER only.
+
+Server-side aggregations over the existing Orders, OrderItems, Customers,
+and a new `AnalyticsEvent` append-only log. Visualised with Recharts
+(already in the dependency tree).
+
+**Charts on the dashboard:**
+
+- **KPI cards** — revenue (last N days), order count, average order value,
+  menu views, conversion rate, returning-customer %, peak hour, top seller.
+- **Revenue trend** — daily revenue + order count, last 7 / 30 / 90 days.
+- **Conversion funnel** — menu views → orders started → orders completed,
+  with the conversion percentage between each stage. Menu views are
+  de-duped by (sessionId, day) so a single browser session refreshing the
+  page doesn't inflate the top of the funnel.
+- **Peak hours heatmap** — 7×24 grid of order counts by day-of-week ×
+  hour, on a 6-stop amber scale. Tells the owner when to schedule staff.
+- **Most-ordered items** — horizontal bar chart of the top 10 items by
+  quantity sold.
+- **Best-selling drinks** — same chart, filtered to items in the
+  `Drinks` category. PRD calls this out as a separate metric.
+- **Returning customer rate** — donut chart of new vs returning customers
+  (2+ orders in the window). PRD calls this out explicitly.
+
+**Event capture plumbing:**
+
+- `src/lib/analytics/actions.ts` — `trackEvent(eventType, payload)` Server
+  Action, callable from client components and from other Server Actions.
+  `trackEventInternal(...)` is the no-headers variant used by
+  `createOrderFromCart` (records `order_started`) and `updateOrderStatus`
+  (records `order_completed` on first transition into COMPLETED).
+- `src/components/site/analytics-tracker.tsx` — invisible client component
+  mounted on the menu page to fire a `menu_view` event on first load.
+- Privacy: no PII stored on event rows. `sessionId` is a SHA-256 hash of
+  the visitor's IP + user-agent — opaque, used only for de-duping. Rows
+  are tenant-scoped like every other model.
+- Multi-tenant safety: every aggregation uses `tenantDb`, so a query for
+  restaurant A's analytics can never leak restaurant B's events.
+
+### 16.2 AI food recommendation (PRD §5.22)
+
+**Routes:** `/<slug>/recommend` (dedicated page) + a compact section on the
+homepage.
+
+v1 is intentionally **tag-based**, not LLM-based — PRD §5.22 explicitly
+endorses this as "genuinely sufficient for a menu of realistic size, and
+avoids adding a per-request AI API cost to a free-tier-conscious
+deployment."
+
+**Engine** (`src/lib/recommend/recommend.ts`):
+
+1. Tokenise the customer's free-text query (lowercase, ASCII, stop-worded).
+2. Expand each token against a small synonym map (`spicy → hot, chilli`,
+   `light → fresh, salad`, `hungry → rice, biryani, grill, beef, mutton`,
+   …).
+3. Build a per-item haystack from name + description + tags + dietary
+   flags.
+4. Score = tag exact match (+5), name substring (+4), dietary flag (+3),
+   description substring (+1), popular-today boost (+1).
+5. Return top N items with score > 0, ranked by score then by popularity.
+
+Each result shows the "match reasons" — the tags / keywords that drove the
+score — so the recommendation is transparent rather than opaque.
+
+**Upgrade path to true NLP:** swap the `recommend()` function for an LLM
+call. The server-action signature (`getRecommendations(query)`) stays
+the same; only the engine implementation changes.
+
+### 16.3 Meal builder (PRD §5.23)
+
+**Route:** `/<slug>/meal-builder` — gated on
+`Restaurant.comboBuilderEnabled` (404s when off, so tenants whose menu
+structure doesn't fit the base → protein → drink → dessert pattern never
+see the link).
+
+**Flow:**
+
+- 4 stages: Base → Protein → Drink → Dessert. Items are pulled from the
+  menu where the owner has tagged `mealBuilderStage` on the MenuItem
+  (admin menu edit form).
+- Each stage supports multiple items with quantity steppers (e.g., 2×
+  Mango Lassi in the drink stage).
+- Live total updates as the user picks.
+- "Add all to cart" sends every selected line to the cart store and
+  routes to `/cart` for checkout — the existing cart → checkout flow
+  handles the rest (M-Pesa STK or cash, delivery/pickup/dine-in, etc.).
+- Mobile-first: sticky summary bar at the bottom of the screen shows the
+  running total + next/add-all button. Stepper at the top shows progress
+  through the 4 stages with item counts per stage.
+
+### 16.4 Seed data updates
+
+The seed script now generates ~60 days of realistic historical data so the
+analytics dashboard has signal on first load:
+
+- **5 new demo customers** (Brian, Faith, Peter, Mary, Daniel) — gives the
+  returning-customer metric real signal.
+- **~150 historical COMPLETED orders** spread across 60 days, weighted
+  toward weekends and peak hours (12-14, 19-21). Items are biased toward
+  popular items + drinks to match the discovery notes' "best biryani in
+  Nakuru" framing.
+- **220 analytics events** across 30 days — menu views, order started,
+  order completed, recommendation used, meal builder used — so the
+  conversion funnel shows numbers on first load.
+- **Extra `mealBuilderStage` tags** on Coconut Rice + Pilau Nyama (base)
+  and Tusker Lager (drink) so the meal builder has 3+ options per stage.
+
+The seed uses a deterministic PRNG (mulberry32, seed=42) so re-seeding
+produces the same data.
+
+---
+
+## 17. What to Test for Phase 4
+
+### 17.1 Analytics dashboard
+
+1. Sign in as owner → navigate to `/majid-restaurant/admin/analytics`.
+2. Verify the 8 KPI cards show non-zero values (seeded data should
+   populate them).
+3. Switch the date range from 30d → 7d → 90d. All charts should refresh.
+4. Revenue trend line chart should show daily revenue for the selected
+   window. Hover over a point — tooltip should show the date + KSh amount.
+5. Conversion funnel should show three stacked bars (menu views → orders
+   started → orders completed) with conversion percentages between
+   stages.
+6. Peak hours heatmap should show a 7×24 grid with darker cells during
+   peak hours (lunch + dinner). Hover over a cell — tooltip should show
+   the day, hour, and order count.
+7. Top items bar chart should show the seeded popular items (Chicken
+   Biryani, etc.) at the top.
+8. Best-selling drinks should show Mango Lassi, Tusker, etc.
+9. Returning customer donut should show new vs returning split.
+
+### 17.2 AI recommendation
+
+1. Visit `/majid-restaurant` (homepage). The "Not sure what to order?"
+   section should appear with the recommender compact UI.
+2. Click a quick-prompt chip (e.g., "Something spicy") — should
+   immediately return ranked suggestions.
+3. Type a custom query ("I'm hungry") and click "Suggest" — should
+   return ranked suggestions with match reasons.
+4. Each suggestion card should have "Add" and "WhatsApp" buttons. Click
+   "Add" — cart count in the header should increment.
+5. Click "Full experience" link — should navigate to
+   `/majid-restaurant/recommend` with the full recommender UI.
+6. Verify the analytics dashboard (after a few recommendation clicks)
+   shows the `recommendation_used` events accumulating.
+
+### 17.3 Meal builder
+
+1. Visit `/majid-restaurant/meal-builder`. (If you see a 404, verify
+   `Restaurant.comboBuilderEnabled` is true in the DB — the seed sets it
+   to true.)
+2. Step 1 (Base) — pick Chicken Biryani. Verify it shows a checkmark and
+   the quantity stepper appears.
+3. Click "Next: Protein" — should advance to the protein stage. Verify
+   the stepper at the top shows Base as done.
+4. Pick a protein, then a drink, then a dessert. The sticky bottom bar
+   should show the running total updating.
+5. Click "Add all to cart" — should redirect to `/cart` with all selected
+   items.
+6. Proceed to checkout — the standard order flow handles the rest.
+7. Verify the analytics dashboard shows `meal_builder_used` events.
+
+### 17.4 Multi-tenant safety (Phase 4 specific)
+
+1. Sign in as staff of tenant A. Open tenant A's analytics dashboard —
+   should see tenant A's data only.
+2. (Once a second tenant exists) Switch to tenant B's analytics URL —
+   should redirect to sign-in (the staff JWT for tenant A is rejected).
+
+---
+
+## 18. License & Credit
 
 Built by **GTSS (Great Thumbs Software Solutions)** as a speculative pitch
 build for Majid Restaurant, Nakuru. The codebase is a reusable multi-tenant

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, Phone, MapPin, ShoppingCart, Calendar, UtensilsCrossed } from "lucide-react";
+import { Menu, X, Phone, MapPin, ShoppingCart, Calendar, UtensilsCrossed, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart/store";
@@ -15,11 +15,13 @@ type SiteHeaderProps = {
   phone: string;
   address: string;
   hasEventSpace?: boolean;
+  comboBuilderEnabled?: boolean;
 };
 
 const NAV_LINKS = [
   { href: "", label: "Home" },
   { href: "/menu", label: "Menu" },
+  { href: "/recommend", label: "Recommend", icon: Sparkles },
   { href: "/reservations", label: "Reserve", icon: Calendar },
   { href: "/catering", label: "Catering", icon: UtensilsCrossed },
   { href: "/careers", label: "Careers" },
@@ -30,6 +32,8 @@ const NAV_LINKS = [
 
 // Events link is only added when hasEventSpace is true.
 const EVENT_LINK = { href: "/events", label: "Events", icon: Calendar };
+// Meal Builder link is only added when comboBuilderEnabled is true.
+const MEAL_BUILDER_LINK = { href: "/meal-builder", label: "Build a Combo", icon: Wand2 };
 
 export function SiteHeader({
   slug,
@@ -38,6 +42,7 @@ export function SiteHeader({
   phone,
   address,
   hasEventSpace,
+  comboBuilderEnabled,
 }: SiteHeaderProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -48,14 +53,18 @@ export function SiteHeader({
       ? pathname === base
       : pathname === `${base}${href}` || pathname.startsWith(`${base}${href}/`);
 
-  // Insert the Events link after Catering if the restaurant has event space.
-  const navLinks = hasEventSpace
-    ? [
-        ...NAV_LINKS.slice(0, 4),
-        EVENT_LINK,
-        ...NAV_LINKS.slice(4),
-      ]
-    : NAV_LINKS;
+  // Compose nav: events link after catering (if hasEventSpace), meal builder
+  // link after recommend (if comboBuilderEnabled).
+  const navLinks: typeof NAV_LINKS = [];
+  for (const link of NAV_LINKS) {
+    navLinks.push(link);
+    if (link.href === "/recommend" && comboBuilderEnabled) {
+      navLinks.push(MEAL_BUILDER_LINK);
+    }
+    if (link.href === "/catering" && hasEventSpace) {
+      navLinks.push(EVENT_LINK);
+    }
+  }
 
   const cartCount = useCart((s) => s.count());
   const cartSlug = useCart((s) => s.restaurantSlug);

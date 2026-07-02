@@ -45,6 +45,7 @@ export default async function TenantLayout({
         phone={restaurant.contactPhone}
         address={restaurant.address}
         hasEventSpace={restaurant.hasEventSpace}
+        comboBuilderEnabled={restaurant.comboBuilderEnabled}
       />
       <main className="flex-1">{children}</main>
       <SiteFooter
@@ -55,6 +56,7 @@ export default async function TenantLayout({
         address={restaurant.address}
         whatsappPhone={restaurant.whatsappPhone}
         hasEventSpace={restaurant.hasEventSpace}
+        comboBuilderEnabled={restaurant.comboBuilderEnabled}
       />
     </div>
   );

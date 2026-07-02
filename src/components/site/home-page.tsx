@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, Clock, MapPin, MessageCircle, Star, Utensils } from "lucide-react";
+import { ArrowRight, Clock, MapPin, MessageCircle, Sparkles, Star, Utensils } from "lucide-react";
 import type { Restaurant, Promotion, Review } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { PromotionsCarousel } from "@/components/site/promotions-carousel";
 import { EmbeddedMap } from "@/components/site/embedded-map";
 import { FcmOptIn } from "@/components/site/fcm-opt-in";
+import { AiRecommender } from "@/components/site/ai-recommender";
 import { computeOpenStatus, fetchHoursForRestaurant } from "@/lib/restaurant/hours";
 import { buildRestaurantJsonLd } from "@/lib/seo/restaurant-jsonld";
 import { formatKsh } from "@/lib/whatsapp/order";
@@ -204,6 +205,32 @@ export function HomePage({
             </div>
           </section>
         )}
+
+        {/* AI Food Recommendation (Phase 4, PRD §5.22) */}
+        <section className="mb-12" aria-labelledby="recommend-heading">
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2
+              id="recommend-heading"
+              className="font-display text-xl font-bold text-foreground sm:text-2xl"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Not sure what to order?
+              </span>
+            </h2>
+            <Link
+              href={`/${restaurant.slug}/recommend`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
+            >
+              Full experience <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <AiRecommender
+            restaurantName={restaurant.name}
+            whatsappPhone={restaurant.whatsappPhone}
+            variant="compact"
+          />
+        </section>
 
         {/* Reviews snippet */}
         {reviews.length > 0 && (
