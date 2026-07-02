@@ -360,3 +360,35 @@
 .animate-pulse-soft {
   animation: majid-pulse-soft 2s var(--ease-in-out) infinite;
 }
+
+/* Gradient border shimmer — for premium loyalty cards, featured sections. */
+@keyframes majid-gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient-border {
+  background-size: 200% 200%;
+  animation: majid-gradient-shift 4s ease infinite;
+}
+
+/* Decorative section divider — warm saffron gradient line. */
+@utility section-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(0.74 0.16 75 / 0.35) 20%,
+    oklch(0.62 0.16 50 / 0.5) 50%,
+    oklch(0.74 0.16 75 / 0.35) 80%,
+    transparent 100%
+  );
+}
+
+/* Glass surface — subtle frosted glass effect for overlays/accents. */
+@utility glass {
+  backdrop-filter: blur(12px) saturate(1.4);
+  background: oklch(1 0 0 / 0.6);
+}
+.dark .glass {
+  background: oklch(0.24 0.012 70 / 0.6);
+}
