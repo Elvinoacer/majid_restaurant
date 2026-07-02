@@ -119,6 +119,7 @@ export function tenantDb(restaurantId: string) {
     review: makeTenantModel(prisma.review, restaurantId),
     promotion: makeTenantModel(prisma.promotion, restaurantId),
     loyaltyRule: makeTenantModel(prisma.loyaltyRule, restaurantId),
+    loyaltyPointLedger: makeTenantModel(prisma.loyaltyPointLedger, restaurantId),
     galleryImage: makeTenantModel(prisma.galleryImage, restaurantId),
     jobPosting: makeTenantModel(prisma.jobPosting, restaurantId),
     operatingHours: makeTenantModel(prisma.operatingHours, restaurantId),

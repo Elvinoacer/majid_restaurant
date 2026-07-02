@@ -37,6 +37,10 @@ model Restaurant {
   coverImageUrl String?
   hasEventSpace       Boolean @default(false)
   comboBuilderEnabled Boolean @default(false)
+  // Loyalty accrual ratio (PRD §5.11). Customer earns 1 point for every
+  // `loyaltySpendPerPoint` currency units spent on a completed, paid order.
+  // Default 100 → "1 point per KSh 100 spent". Owner-configurable.
+  loyaltySpendPerPoint Float @default(100)
   currency      String   @default("KES")
   timezone      String   @default("Africa/Nairobi")
   createdAt     DateTime @default(now())
@@ -54,6 +58,7 @@ model Restaurant {
   reviews            Review[]
   promotions         Promotion[]
   loyaltyRules       LoyaltyRule[]
+  loyaltyLedger      LoyaltyPointLedger[]
   galleryImages      GalleryImage[]
   jobPostings        JobPosting[]
   operatingHours     OperatingHours[]
@@ -153,6 +158,7 @@ model Customer {
   reviews    Review[]
   addresses  CustomerAddress[]
   notificationTokens NotificationToken[] @relation("CustomerTokens")
+  loyaltyLedger LoyaltyPointLedger[]
 
   @@unique([restaurantId, email])
   @@index([restaurantId])
@@ -486,6 +492,42 @@ model LoyaltyRule {
   isActive          Boolean  @default(true)
 
   @@index([restaurantId])
+}
+
+// Audit trail for every loyalty point mutation (PRD §5.11).
+// One row per accrual (order completed) or redemption (reward claimed).
+// Customer.loyaltyPoints is the cached balance; this table is the source of
+// truth — a discrepancy means a bug, and the ledger can be replayed to rebuild
+// the balance.
+enum LoyaltyLedgerEntryType {
+  ACCRUAL    // points earned from a completed, paid order
+  REDEMPTION // points spent on a reward
+  ADJUSTMENT // manual staff correction (e.g. signup bonus, fix mistake)
+  EXPIRY     // points expired (future: time-based expiry rules)
+}
+
+model LoyaltyPointLedger {
+  id            String                @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  entryType     LoyaltyLedgerEntryType
+  points        Int                   // signed: +N for accrual/adjustment, -N for redemption/expiry
+  balanceAfter  Int                   // customer.loyaltyPoints after this entry was applied
+
+  // Optional relations — set when the entry is tied to a specific order or rule.
+  orderId       String?
+  loyaltyRuleId String?
+
+  description   String                // human-readable, shown to customer & staff
+  staffUserId   String?               // set on ADJUSTMENT / staff-initiated REDEMPTION
+  createdAt     DateTime              @default(now())
+
+  @@index([restaurantId, customerId])
+  @@index([restaurantId, createdAt])
+  @@index([orderId])
 }
 
 // ─── GALLERY, CAREERS, ABOUT ─────────────────────────────

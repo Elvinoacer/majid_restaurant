@@ -8,6 +8,7 @@ type SiteFooterProps = {
   email?: string | null;
   address: string;
   whatsappPhone: string;
+  hasEventSpace?: boolean;
 };
 
 export function SiteFooter({
@@ -17,6 +18,7 @@ export function SiteFooter({
   email,
   address,
   whatsappPhone,
+  hasEventSpace,
 }: SiteFooterProps) {
   const base = `/${slug}`;
   return (
@@ -44,6 +46,20 @@ export function SiteFooter({
           </Link>
           <Link href={`${base}/menu`} className="text-sm text-foreground/80 hover:text-accent">
             Menu
+          </Link>
+          <Link href={`${base}/reservations`} className="text-sm text-foreground/80 hover:text-accent">
+            Reservations
+          </Link>
+          <Link href={`${base}/catering`} className="text-sm text-foreground/80 hover:text-accent">
+            Catering
+          </Link>
+          {hasEventSpace && (
+            <Link href={`${base}/events`} className="text-sm text-foreground/80 hover:text-accent">
+              Event space
+            </Link>
+          )}
+          <Link href={`${base}/careers`} className="text-sm text-foreground/80 hover:text-accent">
+            Careers
           </Link>
           <Link href={`${base}/gallery`} className="text-sm text-foreground/80 hover:text-accent">
             Gallery

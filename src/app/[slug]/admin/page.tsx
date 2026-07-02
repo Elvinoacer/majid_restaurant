@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ShoppingBag, Calendar, UtensilsCrossed, Banknote, TrendingUp } from "lucide-react";
+import { ArrowRight, ShoppingBag, Calendar, UtensilsCrossed, Banknote, TrendingUp, ChefHat, Gift, Briefcase, QrCode } from "lucide-react";
 import { getContextRestaurant } from "@/lib/restaurant/context";
 import { db } from "@/lib/db";
 import { formatKsh } from "@/lib/whatsapp/order";
@@ -46,6 +46,15 @@ export default async function AdminOverviewPage({
     where: { isPublished: false },
   });
 
+  // Phase 3 KPIs
+  const newEventBookings = restaurant.hasEventSpace
+    ? await tenant.eventBooking.count({ where: { status: "NEW" } })
+    : 0;
+  const activeJobPostings = await tenant.jobPosting.count({ where: { isActive: true } });
+  const newApplications = await db.jobApplication.count({
+    where: { jobPosting: { restaurantId: restaurant.id }, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+  });
+
   // Active orders (kitchen queue snapshot)
   const activeOrders = await tenant.order.findMany({
     where: { status: { in: ["CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY"] } },
@@ -83,9 +92,37 @@ export default async function AdminOverviewPage({
         />
         <KpiCard
           label="New inquiries"
-          value={String(newCateringInquiries)}
+          value={String(newCateringInquiries + newEventBookings)}
           icon={<UtensilsCrossed className="h-4 w-4" />}
           tone="orange"
+        />
+      </div>
+
+      {/* Phase 3 quick links */}
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <QuickLink
+          href={`/${slug}/admin/kitchen`}
+          label="Kitchen"
+          icon={<ChefHat className="h-4 w-4" />}
+          tone="orange"
+        />
+        <QuickLink
+          href={`/${slug}/admin/loyalty`}
+          label="Loyalty"
+          icon={<Gift className="h-4 w-4" />}
+          tone="purple"
+        />
+        <QuickLink
+          href={`/${slug}/admin/tables`}
+          label="Tables & QR"
+          icon={<QrCode className="h-4 w-4" />}
+          tone="blue"
+        />
+        <QuickLink
+          href={`/${slug}/admin/careers`}
+          label={`Careers${newApplications > 0 ? ` (${newApplications} new)` : ""}`}
+          icon={<Briefcase className="h-4 w-4" />}
+          tone="green"
         />
       </div>
 
@@ -93,12 +130,20 @@ export default async function AdminOverviewPage({
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold">Active orders</h2>
-          <Link
-            href={`/${slug}/admin/orders`}
-            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            View all <ArrowRight className="h-3 w-3" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/${slug}/admin/kitchen`}
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              Kitchen dashboard <ArrowRight className="h-3 w-3" />
+            </Link>
+            <Link
+              href={`/${slug}/admin/orders`}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              All orders <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
         </div>
         {activeOrders.length === 0 ? (
           <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
@@ -184,8 +229,60 @@ export default async function AdminOverviewPage({
             <TrendingUp className="h-5 w-5 text-primary" />
           </Link>
         )}
+        {restaurant.hasEventSpace && newEventBookings > 0 && (
+          <Link
+            href={`/${slug}/admin/events`}
+            className="flex items-center justify-between rounded-xl border border-border bg-card p-4 hover:bg-accent/5"
+          >
+            <div>
+              <p className="font-medium">{newEventBookings} new event booking{newEventBookings === 1 ? "" : "s"}</p>
+              <p className="text-xs text-muted-foreground">Tap to triage</p>
+            </div>
+            <Calendar className="h-5 w-5 text-primary" />
+          </Link>
+        )}
+        {activeJobPostings > 0 && (
+          <Link
+            href={`/${slug}/admin/careers`}
+            className="flex items-center justify-between rounded-xl border border-border bg-card p-4 hover:bg-accent/5"
+          >
+            <div>
+              <p className="font-medium">{activeJobPostings} active job posting{activeJobPostings === 1 ? "" : "s"}</p>
+              <p className="text-xs text-muted-foreground">Manage postings & applications</p>
+            </div>
+            <Briefcase className="h-5 w-5 text-primary" />
+          </Link>
+        )}
       </section>
     </div>
+  );
+}
+
+function QuickLink({
+  href,
+  label,
+  icon,
+  tone,
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  tone: "green" | "blue" | "purple" | "orange";
+}) {
+  const toneClasses = {
+    green: "bg-green-500/10 text-green-700 hover:bg-green-500/20",
+    blue: "bg-blue-500/10 text-blue-700 hover:bg-blue-500/20",
+    purple: "bg-purple-500/10 text-purple-700 hover:bg-purple-500/20",
+    orange: "bg-orange-500/10 text-orange-700 hover:bg-orange-500/20",
+  };
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-2 rounded-xl p-3 text-sm font-medium transition-colors ${toneClasses[tone]}`}
+    >
+      {icon}
+      {label}
+    </Link>
   );
 }
 

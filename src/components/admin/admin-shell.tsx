@@ -12,21 +12,32 @@ import {
   Users,
   LogOut,
   ExternalLink,
+  ChefHat,
+  Gift,
+  CalendarDays,
+  Briefcase,
+  QrCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { staffLogoutAction } from "@/lib/auth/staff-actions";
 import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
+import type { StaffRole } from "@/generated/prisma/client";
 
-const NAV = [
+const NAV: Array<{ href: string; label: string; icon: typeof LayoutDashboard; roles?: StaffRole[] }> = [
   { href: "", label: "Overview", icon: LayoutDashboard },
   { href: "/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/kitchen", label: "Kitchen", icon: ChefHat },
   { href: "/reservations", label: "Reservations", icon: Calendar },
   { href: "/catering", label: "Catering", icon: UtensilsCrossed },
-  { href: "/menu", label: "Menu", icon: Utensils },
-  { href: "/reviews", label: "Reviews", icon: Star },
-  { href: "/staff", label: "Staff", icon: Users },
+  { href: "/events", label: "Events", icon: CalendarDays, roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
+  { href: "/menu", label: "Menu", icon: Utensils, roles: ["OWNER", "MANAGER"] },
+  { href: "/tables", label: "Tables & QR", icon: QrCode },
+  { href: "/loyalty", label: "Loyalty", icon: Gift, roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
+  { href: "/reviews", label: "Reviews", icon: Star, roles: ["OWNER", "MANAGER"] },
+  { href: "/careers", label: "Careers", icon: Briefcase, roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
+  { href: "/staff", label: "Staff", icon: Users, roles: ["OWNER"] },
 ];
 
 export function AdminShell({
@@ -39,13 +50,16 @@ export function AdminShell({
   slug: string;
   restaurantName: string;
   staffName: string;
-  staffRole: string;
+  staffRole: StaffRole;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const base = `/${slug}/admin`;
+
+  // Filter nav by role if `roles` is set on the item.
+  const visibleNav = NAV.filter((item) => !item.roles || item.roles.includes(staffRole));
 
   const isActive = (href: string) =>
     href === ""
@@ -69,7 +83,7 @@ export function AdminShell({
           </div>
         </div>
         <nav className="flex flex-row overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible md:pb-0">
-          {NAV.map((item) => {
+          {visibleNav.map((item) => {
             const Icon = item.icon;
             return (
               <Link

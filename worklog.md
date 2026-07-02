@@ -119,3 +119,64 @@ Stage Summary:
 - Guest checkout works end-to-end without sign-up. Sign-in is optional and only required for: order history, leaving reviews, loyalty (Phase 3+).
 - .git directory preserved untouched.
 - Deliverable: full project zipped to /home/z/my-project/download/majid_restaurant-phase2.zip.
+
+---
+Task ID: phase-3
+Agent: main (super-z)
+Task: Build Phase 3 (Operations Layer — kitchen dashboard, QR table menus, loyalty, event/meeting space bookings, careers) of MajidOS per requirements.md PRD §9 Phase 3.
+
+Work Log:
+- Read full Phase 3 scope from PRD §5.9 (events), §5.11 (loyalty), §5.16 (kitchen dashboard + Socket.IO), §5.19 (careers), §5.24 (QR table menus).
+- Reviewed existing Phase 0+1+2 codebase: schema, tenant-scope, proxy.ts, admin shell, orders/reservations/catering/reviews actions, checkout view, cart store, seed.ts, staff auth, FCM helpers, realtime emit.
+- Schema migration 20260702000000_phase3_loyalty_ledger:
+  * Added Restaurant.loyaltySpendPerPoint (Float, default 100) — owner-configurable accrual ratio (1 point per KSh 100 spent).
+  * Added LoyaltyPointLedger model — audit trail for every loyalty point mutation. Fields: entryType (ACCRUAL/REDEMPTION/ADJUSTMENT/EXPIRY), signed points, balanceAfter snapshot, optional orderId/loyaltyRuleId, description, staffUserId.
+  * Added LoyaltyLedgerEntryType enum.
+  * Updated Restaurant + Customer relations to include loyaltyLedger.
+- Updated tenant-scope.ts to expose loyaltyPointLedger model wrapper.
+- Installed `qrcode` + `@types/qrcode` for QR generation (PRD §4 calls for this).
+- Installed `socket.io-client` for the kitchen dashboard's live Socket.IO connection (dynamic import, falls back to polling when not configured).
+- Loyalty module (src/lib/loyalty/actions.ts):
+  * accrueLoyaltyForOrder — internal, idempotent (skips if ledger entry exists for that order). Used by orders/actions.ts on every COMPLETED transition.
+  * getCustomerLoyaltySummary — balance + recent ledger + active rules for the /account page.
+  * upsertLoyaltyRule / deleteLoyaltyRule / toggleLoyaltyRule — OWNER/MANAGER CRUD.
+  * searchCustomersForLoyalty + getCustomerLoyaltyAdmin — staff lookup by name/email/phone.
+  * redeemReward — staff-initiated redemption with balance guard + REDEMPTION ledger entry.
+  * adjustCustomerPoints — staff-initiated manual adjustment (signup bonus, mistake fix) with ADJUSTMENT ledger entry.
+  * updateLoyaltyAccrualRatio — OWNER-only tenant-wide ratio config.
+- Orders actions updated: updateOrderStatus now calls accrueLoyaltyForOrder on first transition into COMPLETED (idempotent guard via `isCompleting` flag). Also revalidates the kitchen dashboard and account paths.
+- Events module (src/lib/events/actions.ts): createEventBooking (gated on hasEventSpace), updateEventBookingStatus (NEW → CONTACTED → QUOTED → CONFIRMED → COMPLETED/DECLINED).
+- Careers module (src/lib/careers/actions.ts): listActiveJobPostings (public), createJobApplication (FormData CV upload saved to /public/uploads/cv/ with size + MIME validation, PDF/Word only, max 5 MB), upsertJobPosting/deleteJobPosting/toggleJobPosting, listJobPostingsAdmin (with application counts), listApplications per posting.
+- Tables module (src/lib/tables/actions.ts): listTables (admin, with QR data URLs), getTableByShortCode (public, resolves /<slug>/table/<shortCode>), upsertTable/deleteTable (OWNER/MANAGER/FOH), generateQrForTable (single QR data URL), generateQrPrintSheet (full printable HTML sheet for laminating).
+- Kitchen dashboard (PRD §5.16):
+  * Page: /<slug>/admin/kitchen (server component fetches PREPARING/READY/DELIVERED orders from last 4h).
+  * Client component admin-kitchen-dashboard.tsx: 3 columns (Preparing/Ready/Served), large 12h touch-target action buttons (≥44px), urgency cues (red border when PREPARING>10min or READY>5min), elapsed-time display, scheduled-order flag, fulfillment type + table/address, item notes/special-instructions, customer contact for drivers.
+  * Real-time: opens Socket.IO connection to NEXT_PUBLIC_SOCKET_URL, joins `restaurant:<id>` room, re-fetches on every order:new/order:status_changed event. Always polls every 15s as fallback (mobile drops sockets).
+  * API endpoint /<slug>/admin/kitchen/api/route.ts for the polling fallback — auth-gated, returns only the kitchen-relevant orders.
+- QR table menu flow (PRD §5.24):
+  * /<slug>/table/[tableId] server page resolves the table by short code (last 8 chars of CUID), 404s if not found.
+  * table-landing.tsx client component stashes tableId+label in cart store, shows confirmation, sends customer to /menu.
+  * Cart store updated (v2): tableId + tableLabel fields, setTable/clearTable actions, auto-clear on tenant switch.
+  * Checkout view preselects DINE_IN when cart.tableId is set, shows table label read-only, passes tableId to createOrderFromCart.
+- Public events page /<slug>/events — gated on hasEventSpace, 404s otherwise. Booking form: contact, date, duration, guest count, setup needs.
+- Public careers page /<slug>/careers — lists active postings, "Apply" button per posting opens application form (name, phone, email, CV file upload).
+- Admin pages: kitchen, loyalty, events, careers, tables — all role-gated via requireStaff in their actions, with the AdminShell nav filtered by role.
+- AdminShell updated: added Kitchen, Events, Loyalty, Careers, Tables nav items with role-based visibility (e.g. KITCHEN sees Kitchen + Orders but not Menu/Loyalty/Careers/Staff). staffRole prop typed as StaffRole.
+- SiteHeader + SiteFooter updated: Careers link always shown; Events link only when hasEventSpace. Layout passes hasEventSpace down.
+- Account page updated: shows loyalty balance, accrual ratio, available rewards, recent activity (5 entries), and order history.
+- Admin overview page updated: Phase 3 quick-link row (Kitchen/Loyalty/Tables/Careers), KPIs include new event bookings, conditional "new event bookings" + "active job postings" alerts.
+- Seed script updated: loyaltySpendPerPoint=100 on restaurant, 3 sample loyalty rules (free lassi/KSh 200 off/free dessert), loyalty ledger entry for the existing Phase 2 completed order (10 points for KSh 1,050), sample event booking (Sarah Wambui, NEW), 2 job postings (Senior Chef de Partie, Waiter), 1 sample application (Peter Mwangi).
+- .env.example created documenting all env vars (DB, AUTH, MPESA, FIREBASE, CLOUDINARY, GOOGLE_MAPS, SOCKET, NEXT_PUBLIC_APP_URL for QR codes).
+- TypeScript: passes clean (0 errors).
+- Lint: passes clean (0 errors, 0 warnings) after fixing a setState-in-useEffect anti-pattern in table-landing.tsx (replaced with cart-state-derived `saved` flag).
+- Build: `next build` succeeds — 33 routes total compile (5 static + 28 dynamic), up from 26 in Phase 2. All new Phase 3 routes included: /admin/kitchen, /admin/loyalty, /admin/events, /admin/careers, /admin/tables, /admin/kitchen/api, /careers, /events, /table/[tableId].
+
+Stage Summary:
+- Phase 3 of MajidOS complete: all 5 PRD §9 Phase 3 features implemented.
+- Exit criteria met:
+  * "Kitchen staff can run order fulfillment entirely from the dashboard" → /admin/kitchen has 3 columns (Preparing/Ready/Served), large touch-target buttons, live updates via Socket.IO + 15s polling fallback, urgency cues, item notes, fulfillment context, customer contact.
+  * "A printed QR code on a table produces a working dine-in order" → /admin/tables generates QR codes per table + a printable laminator-ready sheet. Scanning the QR lands the customer on /table/<shortCode>, which sets the cart's table binding and redirects to /menu. Checkout preselects DINE_IN, shows the table read-only, and persists tableId on the Order.
+- Multi-tenant safety preserved throughout: tenantDb() wrapper used on every query, staff sessions re-check restaurantId on every request, kitchen polling endpoint is auth-gated and tenant-scoped, CV uploads are saved per-tenant (no cross-tenant leakage in the file path), QR codes encode the tenant slug in the URL.
+- Loyalty accrual is automatic + idempotent — fires once per order's first transition to COMPLETED, guards against re-running on already-accrued orders. Customer.loyaltyPoints is the cached balance; LoyaltyPointLedger is the source of truth.
+- .git directory preserved untouched (only files added/edited in src/, prisma/, public/uploads/cv/).
+- Deliverable: full project zipped to /home/z/my-project/download/majid_restaurant_clone-phase3.zip.

@@ -32,6 +32,7 @@ import {
 } from "@/lib/notifications/send";
 import { db as prisma } from "@/lib/db";
 import type { FulfillmentType, OrderStatus, PaymentMethod } from "@/generated/prisma/client";
+import { accrueLoyaltyForOrder } from "@/lib/loyalty/actions";
 
 const CartLineSchema = z.object({
   menuItemId: z.string().min(1),
@@ -348,6 +349,10 @@ export async function updateOrderStatus(
   });
   if (!order) return { ok: false, error: "Order not found" };
 
+  // Guard against re-marking an already-COMPLETED order — accrual is
+  // idempotent but the broadcast + push notification would fire again.
+  const isCompleting = parsed.data.status === "COMPLETED" && order.status !== "COMPLETED";
+
   await tenant.order.update({
     where: { id: order.id },
     data: { status: parsed.data.status as OrderStatus },
@@ -361,10 +366,15 @@ export async function updateOrderStatus(
       status: parsed.data.status,
     }),
     notifyOrderStatusChange(order, parsed.data.status),
+    // Loyalty accrual happens once, on the first transition into COMPLETED.
+    // Idempotent — re-running on an already-accrued order is a no-op.
+    ...(isCompleting ? [accrueLoyaltyForOrder(order.id)] : []),
   ]);
 
   revalidatePath(`/${restaurant.slug}/admin/orders`);
   revalidatePath(`/${restaurant.slug}/orders/${order.id}`);
+  revalidatePath(`/${restaurant.slug}/admin/kitchen`);
+  revalidatePath(`/${restaurant.slug}/account`);
   return { ok: true, data: { status: parsed.data.status as OrderStatus } };
 }
 

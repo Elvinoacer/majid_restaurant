@@ -1,6 +1,6 @@
 # MajidOS — Restaurant Growth Platform
 
-> **Phase 0 + Phase 1 + Phase 2 deliverable** of the multi-tenant restaurant platform specified in `requirements.md` (PRD v1.0).
+> **Phase 0 + Phase 1 + Phase 2 + Phase 3 deliverable** of the multi-tenant restaurant platform specified in `requirements.md` (PRD v1.0).
 > Built by GTSS (Great Thumbs Software Solutions) for the Majid Restaurant pitch, on Path B (multi-tenant from the schema up).
 
 ---
@@ -8,10 +8,13 @@
 ## 1. What's in this build
 
 Phase 0 (foundation) + Phase 1 (presence & menu) + Phase 2 (ordering,
-reservations, accounts, M-Pesa, admin dashboard) of the PRD — a real, demoable
-web app that lets a customer place and pay for a real order end-to-end and the
-owner manage it from a basic admin dashboard, while keeping the schema
-multi-tenant so the second client is a config entry, not a codebase fork.
+reservations, accounts, M-Pesa, admin dashboard) + Phase 3 (operations layer:
+kitchen dashboard, QR table menus, loyalty, events, careers) of the PRD — a
+real, demoable web app that lets a customer place and pay for a real order
+end-to-end, the owner manage it from a basic admin dashboard, the kitchen run
+fulfillment from a tablet-optimized dashboard, and diners scan a QR code on
+their table to start a dine-in order — while keeping the schema multi-tenant so
+the second client is a config entry, not a codebase fork.
 
 ### Phase 0 — Foundation ✅
 
@@ -452,7 +455,181 @@ After running `bun run db:reset && bun run db:seed`:
 
 ---
 
-## 12. What to Test Before Phase 3
+## 12. Phase 3 — Operations Layer ✅
+
+| PRD § | Feature | Status |
+|-------|---------|--------|
+| 5.9  | Event & meeting space bookings (gated on `hasEventSpace`) | ✅ |
+| 5.11 | Loyalty program — points accrual + rules + redemption + audit ledger | ✅ |
+| 5.16 | Kitchen dashboard — 3 columns (Preparing/Ready/Served), tablet-optimized, Socket.IO + polling fallback | ✅ |
+| 5.19 | Careers — public postings + application form with CV upload + admin triage | ✅ |
+| 5.24 | QR code table menus — print sheet, scan → menu → dine-in order | ✅ |
+
+### Phase 3 routes added
+
+**Customer-facing:**
+- `/<slug>/events` — event space booking form (only renders if `restaurant.hasEventSpace = true`)
+- `/<slug>/careers` — open positions list + per-position application form with CV upload
+- `/<slug>/table/[tableId]` — QR-scanned table landing (sets cart.tableId → menu)
+
+**Admin:**
+- `/<slug>/admin/kitchen` — tablet-optimized real-time kitchen dashboard
+- `/<slug>/admin/kitchen/api` — polling endpoint (15s fallback when Socket.IO is down/unconfigured)
+- `/<slug>/admin/loyalty` — loyalty rules CRUD + customer lookup + redemption/adjustment
+- `/<slug>/admin/events` — event booking workflow (NEW → CONTACTED → QUOTED → CONFIRMED → COMPLETED/DECLINED)
+- `/<slug>/admin/careers` — job postings CRUD + applications viewer (with CV download)
+- `/<slug>/admin/tables` — tables CRUD + per-table QR preview + printable laminator-ready QR sheet
+
+### Phase 3 schema changes
+
+Migration `20260702000000_phase3_loyalty_ledger` adds:
+
+- `Restaurant.loyaltySpendPerPoint` — Float, default 100. Owner-configurable accrual ratio (1 point per KSh 100 spent).
+- `LoyaltyPointLedger` — audit trail for every loyalty point mutation. Fields: `entryType` (ACCRUAL / REDEMPTION / ADJUSTMENT / EXPIRY), signed `points`, `balanceAfter` snapshot, optional `orderId`/`loyaltyRuleId`, `description`, `staffUserId`.
+- `LoyaltyLedgerEntryType` enum.
+
+`Customer.loyaltyPoints` is the cached balance (kept in sync via transaction); `LoyaltyPointLedger` is the source of truth — a discrepancy means a bug, and the ledger can be replayed to rebuild the balance.
+
+### Phase 3 loyalty design
+
+- **Accrual:** automatic + idempotent. When an order transitions to `COMPLETED` for the first time, `accrueLoyaltyForOrder` fires once. Re-running on an already-accrued order is a no-op (checked via the ledger). Only paid orders (`paidAt != null`) with a logged-in customer accrue.
+- **Formula:** `pointsEarned = floor(order.total / restaurant.loyaltySpendPerPoint)`. Default ratio is KSh 100/point (configurable by OWNER on `/admin/loyalty`).
+- **Redemption:** staff-initiated via `/admin/loyalty` → customer lookup → "Redeem reward". Picks an active `LoyaltyRule` (or custom points amount), writes a REDEMPTION ledger entry with the staff user recorded. Balance guard prevents over-redemption.
+- **Adjustment:** OWNER/MANAGER can manually +/- points (signup bonus, mistake fix). Writes an ADJUSTMENT ledger entry with the staff user + reason.
+- **Customer view:** `/account` shows balance, accrual ratio, available rewards, and last 5 ledger entries.
+
+### Phase 3 kitchen dashboard design
+
+- Three columns: **Preparing** → **Ready** → **Served** (with "Complete" button to advance to COMPLETED).
+- Large touch-target action buttons (44px+ height) — designed for a tablet mounted in a kitchen, not a mouse.
+- Urgency cues: red border + ring when an order has been in PREPARING > 10 min or READY > 5 min (configurable threshold).
+- Per-card: order #, elapsed time, fulfillment type (delivery/pickup/dine-in), table label or delivery address, item list with line-item notes, special instructions (highlighted), customer contact for delivery drivers.
+- Real-time: opens a Socket.IO connection to `NEXT_PUBLIC_SOCKET_URL` and joins the `restaurant:<id>` room. Re-fetches on every `order:new` / `order:status_changed` event. Always polls `/admin/kitchen/api` every 15s as a fallback (mobile connections drop sockets all the time — the kitchen can't afford to miss an order).
+- Role gating: KITCHEN / MANAGER / OWNER can advance order status. FRONT_OF_HOUSE can view (read-only) — they handle pickup/delivery handoff verbally.
+
+### Phase 3 QR table menu flow
+
+1. Owner goes to `/<slug>/admin/tables` → sees all tables with inline QR previews.
+2. Owner clicks "Print QR sheet" → opens a printable HTML page with one card per table (label + QR + URL) formatted for an A4 sheet. Prints and laminates one per table.
+3. Customer scans the QR with their phone → lands on `/<slug>/table/<shortCode>` (short code = last 8 chars of the table's CUID, so the URL bar stays short).
+4. The table landing page stashes `tableId` + `tableLabel` in the cart store and redirects to `/<slug>/menu`.
+5. Customer adds items to cart, goes to checkout. The checkout detects the cart's `tableId`, preselects DINE_IN fulfillment, shows the table label read-only, and persists `tableId` on the Order.
+6. The kitchen dashboard shows the dine-in order with the table label prominently, so runners know where to deliver.
+
+The QR URL is built from `NEXT_PUBLIC_APP_URL` if set, otherwise reconstructed from request headers (`x-forwarded-proto` + `x-forwarded-host` / `host`). Set `NEXT_PUBLIC_APP_URL` to your production domain before printing QR codes for the demo.
+
+### Phase 3 careers CV upload
+
+In dev, CV uploads are saved to `/public/uploads/cv/<timestamp>-<slug>.<ext>` and the public URL is stored on `JobApplication.cvUrl`. Validation:
+- Max 5 MB
+- MIME type in allowlist: `application/pdf`, `application/msword`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document` (PDF + Word)
+- Extension derived from MIME type (not trusted from the original filename)
+
+In production, swap `saveCvFile` in `src/lib/careers/actions.ts` with a Cloudinary uploader — the `cvUrl` column stays the same, only the storage backend changes.
+
+### Phase 3 demo accounts (unchanged from Phase 2)
+
+After running `bun run db:reset && bun prisma/seed.ts`:
+
+- **Customer:** `aisha@example.com` / `aisha-demo-2024` (now has 10 loyalty points + 1 ledger entry from the seeded completed order)
+- **Staff (OWNER):** `owner@majid.com` / `majid-owner-2024` — full access to all Phase 3 admin pages
+- **Staff (MANAGER):** `manager@majid.com` / `majid-manager-2024` — full access except staff management
+- **Staff (KITCHEN):** `kitchen@majid.com` / `majid-kitchen-2024` — sees Kitchen + Orders only (Menu/Loyalty/Careers/Staff/Events hidden in nav)
+
+---
+
+## 13. Testing Phase 3 end-to-end
+
+### 13.1 Kitchen dashboard (PRD §5.16 exit criteria)
+
+1. Sign in as `kitchen@majid.com` / `majid-kitchen-2024` at `/majid-restaurant/admin/sign-in`.
+2. Click **Kitchen** in the sidebar → land on `/majid-restaurant/admin/kitchen`.
+3. Verify three columns render (Preparing / Ready / Served). If empty, place a test order first (see 13.4 below).
+4. Verify the connection badge in the top-right shows "Polling (no socket)" — Socket.IO isn't configured for the demo, so the dashboard relies on 15-second polling.
+5. Place a new order in another tab (Phase 2 customer checkout flow → cash on delivery). Within 15 seconds, the order should appear in the **Preparing** column on the kitchen dashboard (no manual refresh).
+6. Click **Mark ready** on the order card. It should move to the **Ready** column.
+7. Click **Mark served** → moves to **Served**.
+8. Click **Complete** → moves out of the dashboard (status = COMPLETED). Loyalty points accrue to the customer at this step if they were logged in.
+9. Verify the urgency cue: wait 10+ minutes on an order in Preparing (or temporarily lower the threshold in `admin-kitchen-dashboard.tsx`) → the card border turns red.
+
+### 13.2 QR table menu (PRD §5.24 exit criteria)
+
+1. Sign in as `owner@majid.com` / `majid-owner-2024`.
+2. Go to `/majid-restaurant/admin/tables` → see 12 seeded tables (Table 1–12) with inline QR previews.
+3. Click **Print QR sheet** → a new tab opens with a printable A4 sheet of all 12 QR codes. Print to PDF or paper.
+4. Right-click one of the inline QR images → copy image address, OR click the "Open table page →" link below any QR.
+5. The table page loads at `/majid-restaurant/table/<shortCode>` → shows "Table X — you scanned the QR code for…", the table is now bound to your cart.
+6. Click **View menu & order** → land on `/majid-restaurant/menu`. Add items to cart.
+7. Go to `/majid-restaurant/checkout`. Verify:
+   - Fulfillment is preselected to **Dine-in**.
+   - The Table field shows the bound table label, read-only, with a green "Detected from QR code on your table" hint.
+   - The "Table number" input is not editable.
+8. Place the order (cash). On the order status page, verify the order has `fulfillmentType: DINE_IN` and `tableId` set (visible in the admin orders list — the table label shows on the order card).
+9. Open the kitchen dashboard → verify the new dine-in order shows the table label prominently so runners know where to deliver.
+
+### 13.3 Loyalty (PRD §5.11)
+
+1. Sign in as `aisha@example.com` / `aisha-demo-2024` at `/majid-restaurant/sign-in`.
+2. Go to `/majid-restaurant/account` → verify the loyalty card shows **10 points** (accrued from the seeded completed order, KSh 1,050 ÷ 100 = 10 points) and one entry in "Recent activity" reading "Earned from order #XXXXXX (KSh 1,050)".
+3. Verify three rewards are listed: Free mango lassi (50 pts), KSh 200 off (100 pts), Free dessert with family combo (KSh 5,000 spend).
+4. Sign out, sign in as `owner@majid.com` / `majid-owner-2024` → go to `/majid-restaurant/admin/loyalty`.
+5. Verify the accrual ratio shows "1 loyalty point per KSh 100 spent".
+6. In the customer lookup, search for "aisha" → click the result → see balance (10 points) + 1 completed order + KSh 1,050 lifetime.
+7. In "Redeem reward", select "Free mango lassi" — note the points field auto-fills to 50. Since Aisha only has 10 points, you should see a red "needs 40 more points" warning. Try to redeem anyway → it should be blocked with an error.
+8. Test manual adjustment: enter +90 points with reason "Signup bonus". Verify Aisha's balance becomes 100. Go back to redeem the lassi (50 points) → success, balance drops to 50, ledger entry created.
+9. Sign back in as Aisha → `/account` → verify balance is 50 + recent activity shows the redemption (-50) and the adjustment (+90).
+10. Create a new reward rule (OWNER/MANAGER) → e.g. "Free chapati" / 30 points / "Complimentary chapati on next order" → verify it appears on Aisha's `/account` page rewards list.
+11. Toggle the rule inactive → verify it disappears from Aisha's rewards list (active rules only).
+
+### 13.4 Event space bookings (PRD §5.9)
+
+1. Visit `/majid-restaurant/events` (no sign-in needed — it's public).
+2. Verify the booking form renders (Majid has `hasEventSpace = true`).
+3. Fill in name, phone, event date (future), 5h duration, 60 guests, setup needs → submit.
+4. Verify "Request sent!" confirmation screen.
+5. Sign in as owner → `/majid-restaurant/admin/events` → see the booking (status: NEW) + the seeded Sarah Wambui booking.
+6. Walk it through: NEW → CONTACTED → QUOTED → CONFIRMED → COMPLETED. Verify status filter works.
+
+### 13.5 Careers (PRD §5.19)
+
+1. Visit `/majid-restaurant/careers` (public, no sign-in).
+2. Verify two seeded postings show: Senior Chef de Partie + Waiter/Waitress.
+3. Click "Apply now" on the chef posting → application form opens with the full description above.
+4. Fill in name + phone + email + attach a PDF or Word CV (under 5 MB) → submit.
+5. Verify "Application sent!" confirmation.
+6. Try uploading a 6 MB file → should fail with "CV file is too large".
+7. Try uploading a .jpg → should fail with "CV must be a PDF or Word document".
+8. Sign in as owner → `/majid-restaurant/admin/careers` → see both postings (one with 1 application, one with 0 — counts visible).
+9. Click the application count button → dialog opens showing the application. If a CV was uploaded, "Download CV" link works.
+10. Create a new posting → verify it appears on the public `/careers` page. Toggle it inactive → verify it disappears from the public page.
+
+### 13.6 Real-time (optional — requires Socket.IO service)
+
+The kitchen dashboard works without Socket.IO (uses 15-second polling). To get true real-time updates:
+
+1. Deploy a separate Socket.IO service (PRD §8 — not part of this zip). Example: a small Node/Express app on Railway that exposes:
+   - `POST /emit` — accepts `{ room, event }` and broadcasts `event` to sockets in `room`.
+   - `connection` handler that joins sockets to rooms via a `join` event.
+2. Set `NEXT_PUBLIC_SOCKET_URL` and `SOCKET_SERVER_SECRET` in `.env`.
+3. The `src/lib/realtime/emit.ts` helper already POSTs `order:new` / `order:status_changed` events to `<NEXT_PUBLIC_SOCKET_URL>/emit` on every order mutation. The kitchen dashboard subscribes to those events and re-fetches.
+4. Place an order in one tab, watch it appear on the kitchen dashboard in another tab within ~1 second.
+
+---
+
+## 14. What's NOT in Phase 3 (deferred to Phase 4)
+
+- **Analytics** (PRD §5.18 — most-ordered items, peak hours heatmap, returning-customer rate, revenue trends, conversion rate)
+- **AI food recommendation** (PRD §5.22 — "I'm hungry" → tag-based matching)
+- **Meal builder** (PRD §5.23 — Base → Protein → Drink → Dessert with live total, gated on `comboBuilderEnabled`)
+- **Reservation reminders** (PRD §5.5: "reminder notification 2 hours before reservation time") — requires a cron/scheduler
+- **Operating hours enforcement** at checkout — Phase 3 doesn't block orders outside operating hours
+- **Multi-branch UI** — schema supports it, but the branch switcher isn't surfaced (single-branch until a real second branch exists)
+
+These are all explicitly Phase 4 per PRD §9.
+
+---
+
+## 15. What to Test Before Phase 3
 
 Phase 3 (Operations Layer — kitchen dashboard, QR table menus, loyalty, event
 space bookings, careers) builds on the Phase 2 order lifecycle and admin

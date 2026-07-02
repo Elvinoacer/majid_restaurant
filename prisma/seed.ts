@@ -45,6 +45,7 @@ async function main() {
       comboBuilderEnabled: true,
       currency: "KES",
       timezone: "Africa/Nairobi",
+      loyaltySpendPerPoint: 100,
     },
     create: {
       slug: MAJID_SLUG,
@@ -69,6 +70,7 @@ async function main() {
       comboBuilderEnabled: true,
       currency: "KES",
       timezone: "Africa/Nairobi",
+      loyaltySpendPerPoint: 100,
     },
   });
 
@@ -712,8 +714,152 @@ async function main() {
   });
   console.log(`  ✓ Inserted 1 sample reservation`);
 
+  // ── Phase 3 seed data ────────────────────────────────────
+
+  // Loyalty rules — three sample rewards of different shapes so the admin
+  // UI has something to show on first load.
+  await db.loyaltyRule.deleteMany({ where: { restaurantId: restaurant.id } });
+  await db.loyaltyRule.createMany({
+    data: [
+      {
+        restaurantId: restaurant.id,
+        description: "Free mango lassi",
+        pointsRequired: 50,
+        spendThreshold: null,
+        rewardDescription: "Complimentary mango lassi on your next order.",
+        isActive: true,
+      },
+      {
+        restaurantId: restaurant.id,
+        description: "KSh 200 off your next order",
+        pointsRequired: 100,
+        spendThreshold: null,
+        rewardDescription: "KSh 200 discount voucher, redeemable once.",
+        isActive: true,
+      },
+      {
+        restaurantId: restaurant.id,
+        description: "Free dessert with family combo",
+        pointsRequired: null,
+        spendThreshold: 5000,
+        rewardDescription: "Free dessert of the day when you spend KSh 5,000+ in a single order.",
+        isActive: true,
+      },
+    ],
+  });
+  console.log(`  ✓ Inserted 3 loyalty rules`);
+
+  // Loyalty ledger: accrue points for the sample completed order from Phase 2.
+  // This makes the demo customer's account page show a non-zero balance + an
+  // entry in the recent activity list, so the loyalty feature visibly works
+  // on first load.
+  await db.loyaltyPointLedger.deleteMany({ where: { restaurantId: restaurant.id } });
+  if (chickenBiryani && mangoLassi) {
+    // Re-lookup the completed order (we created it above with status COMPLETED).
+    const completedOrders = await db.order.findMany({
+      where: { restaurantId: restaurant.id, status: "COMPLETED", customerId: demoCustomer.id },
+      take: 1,
+    });
+    for (const o of completedOrders) {
+      const pointsEarned = Math.floor(o.total / 100); // matches loyaltySpendPerPoint = 100
+      if (pointsEarned > 0) {
+        await db.loyaltyPointLedger.create({
+          data: {
+            restaurantId: restaurant.id,
+            customerId: demoCustomer.id,
+            entryType: "ACCRUAL",
+            points: pointsEarned,
+            balanceAfter: pointsEarned,
+            orderId: o.id,
+            description: `Earned from order #${o.id.slice(-6).toUpperCase()} (KSh ${Math.round(o.total)})`,
+            createdAt: o.createdAt,
+          },
+        });
+        await db.customer.update({
+          where: { id: demoCustomer.id },
+          data: { loyaltyPoints: pointsEarned },
+        });
+        console.log(`  ✓ Accrued ${pointsEarned} loyalty points for demo customer`);
+      }
+    }
+  }
+
+  // Sample event booking (NEW status) so the admin events page has data.
+  await db.eventBooking.deleteMany({ where: { restaurantId: restaurant.id } });
+  await db.eventBooking.create({
+    data: {
+      restaurantId: restaurant.id,
+      contactName: "Sarah Wambui",
+      contactPhone: "+254722111222",
+      eventDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+      durationHours: 5,
+      guestCount: 60,
+      setupNeeds: "Projector + screen, 8 round tables of 8, PA system, separate buffet area",
+      status: "NEW",
+    },
+  });
+  console.log(`  ✓ Inserted 1 sample event booking`);
+
+  // Job postings + 1 sample application so the admin careers page has data.
+  await db.jobApplication.deleteMany({});
+  await db.jobPosting.deleteMany({ where: { restaurantId: restaurant.id } });
+  const chefPosting = await db.jobPosting.create({
+    data: {
+      restaurantId: restaurant.id,
+      title: "Senior Chef de Partie",
+      description:
+        "We're looking for an experienced chef de partie to lead our biryani and grill section.\n\n" +
+        "What you'll do:\n" +
+        "• Prep and cook biryani, nyama choma, and curries to spec\n" +
+        "• Lead a 3-cook section during service\n" +
+        "• Train junior staff on plating and portion control\n" +
+        "• Maintain food safety standards (we're Nakuru County-certified)\n\n" +
+        "Requirements:\n" +
+        "• 3+ years in a similar role (hotel or busy restaurant)\n" +
+        "• Food safety certificate\n" +
+        "• Available for evening + weekend shifts\n\n" +
+        "Compensation: KSh 35,000–45,000/month + tips + staff meal.",
+      isActive: true,
+    },
+  });
+  const waiterPosting = await db.jobPosting.create({
+    data: {
+      restaurantId: restaurant.id,
+      title: "Waiter / Waitress",
+      description:
+        "Front-of-house role serving breakfast, lunch, and dinner service.\n\n" +
+        "What you'll do:\n" +
+        "• Take orders, serve food, handle bills\n" +
+        "• Set up and clear tables\n" +
+        "• Help with reservations and walk-ins\n\n" +
+        "Requirements:\n" +
+        "• 1+ year hospitality experience\n" +
+        "• Friendly, punctual, presentable\n" +
+        "• Swahili + basic English\n\n" +
+        "Compensation: KSh 18,000–22,000/month + tips + staff meal.",
+      isActive: true,
+    },
+  });
+  console.log(`  ✓ Inserted 2 job postings`);
+
+  // Sample application on the chef posting so the admin list isn't empty.
+  await db.jobApplication.create({
+    data: {
+      jobPostingId: chefPosting.id,
+      applicantName: "Peter Mwangi",
+      applicantPhone: "+254712998877",
+      applicantEmail: "peter.mwangi@example.com",
+      cvUrl: "", // no CV uploaded in seed
+    },
+  });
+  console.log(`  ✓ Inserted 1 sample job application`);
+
+  // Touch the waiter posting to make sure both have entries in the DB.
+  void waiterPosting;
+
   console.log(`\n→ Seed complete. Visit /${MAJID_SLUG} to view the demo.`);
   console.log(`→ Admin: /${MAJID_SLUG}/admin/sign-in (owner@majid.com / majid-owner-2024)`);
+  console.log(`→ Kitchen: /${MAJID_SLUG}/admin/kitchen (kitchen@majid.com / majid-kitchen-2024)`);
 }
 
 main()

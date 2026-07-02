@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Loader2, MapPin, Store, Utensils, ShieldCheck, CreditCard, Banknote } from "lucide-react";
+import { ArrowRight, Loader2, MapPin, Store, Utensils, ShieldCheck, CreditCard, Banknote, Check } from "lucide-react";
 import { useCart } from "@/lib/cart/store";
 import { formatKsh } from "@/lib/whatsapp/order";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,17 @@ export function CheckoutView({ slug }: { slug: string }) {
   const lines = useCart((s) => s.lines);
   const total = useCart((s) => s.total());
   const clear = useCart((s) => s.clear);
+  const cartTableId = useCart((s) => s.tableId);
+  const cartTableLabel = useCart((s) => s.tableLabel);
+  const clearTable = useCart((s) => s.clearTable);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const [fulfillment, setFulfillment] = useState<FulfillmentType>("DELIVERY");
+  // Pre-select DINE_IN if the customer scanned a table QR; the table field
+  // is shown read-only since it's already known.
+  const [fulfillment, setFulfillment] = useState<FulfillmentType>(
+    cartTableId ? "DINE_IN" : "DELIVERY",
+  );
   const [payment, setPayment] = useState<PaymentMethod>(
     isMpesaConfiguredClient() ? "MPESA" : "CASH",
   );
@@ -38,7 +45,7 @@ export function CheckoutView({ slug }: { slug: string }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [tableNumber, setTableNumber] = useState("");
+  const [tableNumber, setTableNumber] = useState(cartTableLabel ?? "");
   const [mpesaPhone, setMpesaPhone] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
@@ -67,7 +74,7 @@ export function CheckoutView({ slug }: { slug: string }) {
       toast.error("Please enter your delivery address");
       return;
     }
-    if (fulfillment === "DINE_IN" && !tableNumber.trim()) {
+    if (fulfillment === "DINE_IN" && !cartTableId && !tableNumber.trim()) {
       toast.error("Please enter your table number");
       return;
     }
@@ -89,7 +96,11 @@ export function CheckoutView({ slug }: { slug: string }) {
           fulfillmentType: fulfillment,
           scheduledFor: scheduledFor || null,
           deliveryAddress: fulfillment === "DELIVERY" ? address : null,
-          tableId: null, // Phase 3 will resolve tableId from tableNumber via QR scan
+          // Phase 3: if the customer scanned a table QR, pass the resolved
+          // tableId straight through — the server validates it belongs to this
+          // tenant. Manual table number entry falls back to null (Phase 3
+          // staff can still match it to a table by label).
+          tableId: fulfillment === "DINE_IN" ? cartTableId ?? null : null,
           specialInstructions: specialInstructions || null,
           guestName: name,
           guestPhone: phone,
@@ -111,8 +122,9 @@ export function CheckoutView({ slug }: { slug: string }) {
           return;
         }
 
-        // Clear the cart only after successful submission.
+        // Clear the cart + table after successful submission.
         clear();
+        if (cartTableId) clearTable();
 
         if (submitted.data.status === "CONFIRMED") {
           toast.success("Order placed! The kitchen has been notified.");
@@ -181,17 +193,34 @@ export function CheckoutView({ slug }: { slug: string }) {
         {fulfillment === "DINE_IN" && (
           <div className="mt-4">
             <Label htmlFor="table">Table number</Label>
-            <Input
-              id="table"
-              value={tableNumber}
-              onChange={(e) => setTableNumber(e.target.value)}
-              placeholder="e.g. Table 4"
-              required
-              className="mt-1"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Find the table number on the QR card on your table.
-            </p>
+            {cartTableId && cartTableLabel ? (
+              <div className="mt-1">
+                <Input
+                  id="table"
+                  value={cartTableLabel}
+                  readOnly
+                  className="bg-muted/40 font-medium"
+                />
+                <p className="mt-1 flex items-center gap-1 text-xs text-green-700">
+                  <Check className="h-3 w-3" />
+                  Detected from QR code on your table.
+                </p>
+              </div>
+            ) : (
+              <>
+                <Input
+                  id="table"
+                  value={tableNumber}
+                  onChange={(e) => setTableNumber(e.target.value)}
+                  placeholder="e.g. Table 4"
+                  required
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Find the table number on the QR card on your table.
+                </p>
+              </>
+            )}
           </div>
         )}
 

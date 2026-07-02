@@ -44,6 +44,7 @@ export default async function TenantLayout({
         logoUrl={restaurant.logoUrl}
         phone={restaurant.contactPhone}
         address={restaurant.address}
+        hasEventSpace={restaurant.hasEventSpace}
       />
       <main className="flex-1">{children}</main>
       <SiteFooter
@@ -53,6 +54,7 @@ export default async function TenantLayout({
         email={restaurant.contactEmail}
         address={restaurant.address}
         whatsappPhone={restaurant.whatsappPhone}
+        hasEventSpace={restaurant.hasEventSpace}
       />
     </div>
   );

@@ -30,11 +30,15 @@ export type CartLine = {
 type CartState = {
   lines: CartLine[];
   restaurantSlug: string | null; // prevents cart bleed between tenants
+  tableId: string | null;        // Phase 3: set when customer scans a table QR
+  tableLabel: string | null;     // human-readable, shown in checkout UI
   addLine: (line: Omit<CartLine, "quantity">, quantity?: number) => void;
   setQuantity: (menuItemId: string, quantity: number) => void;
   removeLine: (menuItemId: string) => void;
   clear: () => void;
   setRestaurantSlug: (slug: string) => void;
+  setTable: (tableId: string, label: string) => void;
+  clearTable: () => void;
   total: () => number;
   count: () => number;
 };
@@ -44,6 +48,8 @@ export const useCart = create<CartState>()(
     (set, get) => ({
       lines: [],
       restaurantSlug: null,
+      tableId: null,
+      tableLabel: null,
 
       addLine: (line, quantity = 1) =>
         set((state) => {
@@ -83,12 +89,16 @@ export const useCart = create<CartState>()(
         set((state) => {
           // If the user switches to a different tenant, dump the cart — you
           // can't carry items from Restaurant A's menu into Restaurant B's
-          // checkout.
+          // checkout. Also clear the table since it belongs to the old tenant.
           if (state.restaurantSlug && state.restaurantSlug !== slug) {
-            return { restaurantSlug: slug, lines: [] };
+            return { restaurantSlug: slug, lines: [], tableId: null, tableLabel: null };
           }
           return { restaurantSlug: slug };
         }),
+
+      setTable: (tableId, label) => set({ tableId, tableLabel: label }),
+
+      clearTable: () => set({ tableId: null, tableLabel: null }),
 
       total: () =>
         get().lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0),
@@ -97,7 +107,7 @@ export const useCart = create<CartState>()(
     }),
     {
       name: "majidos-cart",
-      version: 1,
+      version: 2,
     },
   ),
 );

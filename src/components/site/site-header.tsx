@@ -14,6 +14,7 @@ type SiteHeaderProps = {
   logoUrl?: string | null;
   phone: string;
   address: string;
+  hasEventSpace?: boolean;
 };
 
 const NAV_LINKS = [
@@ -21,10 +22,14 @@ const NAV_LINKS = [
   { href: "/menu", label: "Menu" },
   { href: "/reservations", label: "Reserve", icon: Calendar },
   { href: "/catering", label: "Catering", icon: UtensilsCrossed },
+  { href: "/careers", label: "Careers" },
   { href: "/gallery", label: "Gallery" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
+
+// Events link is only added when hasEventSpace is true.
+const EVENT_LINK = { href: "/events", label: "Events", icon: Calendar };
 
 export function SiteHeader({
   slug,
@@ -32,6 +37,7 @@ export function SiteHeader({
   logoUrl,
   phone,
   address,
+  hasEventSpace,
 }: SiteHeaderProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -41,6 +47,15 @@ export function SiteHeader({
     href === ""
       ? pathname === base
       : pathname === `${base}${href}` || pathname.startsWith(`${base}${href}/`);
+
+  // Insert the Events link after Catering if the restaurant has event space.
+  const navLinks = hasEventSpace
+    ? [
+        ...NAV_LINKS.slice(0, 4),
+        EVENT_LINK,
+        ...NAV_LINKS.slice(4),
+      ]
+    : NAV_LINKS;
 
   const cartCount = useCart((s) => s.count());
   const cartSlug = useCart((s) => s.restaurantSlug);
@@ -79,7 +94,7 @@ export function SiteHeader({
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link
               key={link.href || "home"}
               href={`${base}${link.href}`}
@@ -150,7 +165,7 @@ export function SiteHeader({
             className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3"
             aria-label="Mobile"
           >
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
                 key={link.href || "home"}
                 href={`${base}${link.href}`}
