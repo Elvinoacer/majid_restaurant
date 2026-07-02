@@ -4,9 +4,14 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * MajidOS design tokens.
+ * MajidOS design tokens — premium foundation.
+ *
  * Warm restaurant palette: saffron / turmeric / terracotta on warm cream.
  * No indigo or blue as primary — per project styling rules.
+ *
+ * This file is the single source of truth for the design system. Every
+ * component reads from these tokens; nothing should hardcode a hex/oklch
+ * value inline.
  */
 @theme inline {
   --color-background: var(--background);
@@ -43,10 +48,27 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
+  /* Semantic status colors — used for order/reservation states, alerts,
+     and feedback. Replaces hardcoded yellow-700/blue-700/etc. throughout. */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-muted: var(--warning-muted);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-muted: var(--danger-muted);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-muted: var(--info-muted);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
 
   /* MajidOS brand colors — exposed as Tailwind utilities (bg-brand-*). */
   --color-brand-saffron: oklch(0.74 0.16 75);
@@ -58,7 +80,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
   /* Warm cream background instead of pure white — restaurant feel. */
   --background: oklch(0.985 0.008 85);
@@ -90,6 +112,20 @@
   --input: oklch(0.93 0.008 80);
   --ring: oklch(0.62 0.16 50);
 
+  /* Semantic status — warm, food-appetitive, accessible in bright light. */
+  --success: oklch(0.55 0.14 150);
+  --success-foreground: oklch(0.99 0.01 150);
+  --success-muted: oklch(0.95 0.04 150);
+  --warning: oklch(0.70 0.16 70);
+  --warning-foreground: oklch(0.30 0.06 70);
+  --warning-muted: oklch(0.95 0.06 80);
+  --danger: oklch(0.58 0.22 25);
+  --danger-foreground: oklch(0.99 0.01 25);
+  --danger-muted: oklch(0.95 0.05 25);
+  --info: oklch(0.55 0.13 38);
+  --info-foreground: oklch(0.99 0.005 38);
+  --info-muted: oklch(0.95 0.04 38);
+
   --chart-1: oklch(0.62 0.16 50);
   --chart-2: oklch(0.55 0.13 38);
   --chart-3: oklch(0.74 0.16 75);
@@ -104,6 +140,24 @@
   --sidebar-accent-foreground: oklch(0.30 0.04 65);
   --sidebar-border: oklch(0.90 0.01 80);
   --sidebar-ring: oklch(0.62 0.16 50);
+
+  /*
+   * Elevation system — subtle, layered. Premium products use depth to
+   * establish hierarchy, not for decoration. Three levels cover every need:
+   *   --elevation-1: cards resting on the page
+   *   --elevation-2: cards on hover / raised surfaces
+   *   --elevation-3: popovers, dropdowns, modals
+   */
+  --elevation-1: 0 1px 2px 0 oklch(0.22 0.01 70 / 0.04), 0 1px 1px -1px oklch(0.22 0.01 70 / 0.04);
+  --elevation-2: 0 4px 12px -2px oklch(0.22 0.01 70 / 0.08), 0 2px 4px -2px oklch(0.22 0.01 70 / 0.05);
+  --elevation-3: 0 16px 40px -8px oklch(0.22 0.01 70 / 0.16), 0 4px 12px -4px oklch(0.22 0.01 70 / 0.08);
+
+  /* Motion — fast and purposeful. Never linear. */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
 }
 
 .dark {
@@ -138,15 +192,41 @@
   --sidebar-accent-foreground: oklch(0.96 0.012 85);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.74 0.16 75);
+
+  --success: oklch(0.70 0.15 150);
+  --success-foreground: oklch(0.18 0.02 150);
+  --success-muted: oklch(0.30 0.05 150);
+  --warning: oklch(0.78 0.15 75);
+  --warning-foreground: oklch(0.20 0.03 75);
+  --warning-muted: oklch(0.32 0.06 75);
+  --danger: oklch(0.70 0.19 22);
+  --danger-foreground: oklch(0.18 0.02 22);
+  --danger-muted: oklch(0.32 0.06 22);
+  --info: oklch(0.70 0.13 50);
+  --info-foreground: oklch(0.18 0.02 50);
+  --info-muted: oklch(0.32 0.05 50);
+
+  --elevation-1: 0 1px 2px 0 oklch(0 0 0 / 0.3), 0 1px 1px -1px oklch(0 0 0 / 0.3);
+  --elevation-2: 0 4px 12px -2px oklch(0 0 0 / 0.4), 0 2px 4px -2px oklch(0 0 0 / 0.3);
+  --elevation-3: 0 16px 40px -8px oklch(0 0 0 / 0.5), 0 4px 12px -4px oklch(0 0 0 / 0.3);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "ss01", "cv01";
+    /* Tabular numerals for prices/quantities — numbers align in columns. */
+    font-variant-numeric: tabular-nums;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Sticky footer support — body is min-h-screen flex column. */
@@ -155,13 +235,128 @@
     @apply min-h-screen;
   }
 
-  /* Scrollbar polish for long lists (e.g. menu category chips). */
-  .scroll-thin::-webkit-scrollbar {
-    height: 6px;
-    width: 6px;
+  /* Premium text selection — saffron tint. */
+  ::selection {
+    background-color: oklch(0.74 0.16 75 / 0.28);
+    color: var(--foreground);
   }
-  .scroll-thin::-webkit-scrollbar-thumb {
-    background: oklch(0.62 0.16 50 / 0.4);
+
+  /* Consistent focus-visible ring across every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Premium scrollbar — thin, themed, only on hover. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.62 0.16 50 / 0.3) transparent;
+  }
+  .scroll-thin::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-thumb {
+    background: oklch(0.62 0.16 50 / 0.25);
     border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
+  .scroll-thin::-webkit-scrollbar-thumb:hover,
+  *::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.62 0.16 50 / 0.45);
+    background-clip: content-box;
+  }
+
+  /* Respect reduced-motion preferences — premium means accessible. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/*
+ * Utility classes for the elevation + motion systems. Used throughout the
+ * premium component layer so depth and timing stay consistent.
+ */
+@utility elevation-1 {
+  box-shadow: var(--elevation-1);
+}
+@utility elevation-2 {
+  box-shadow: var(--elevation-2);
+}
+@utility elevation-3 {
+  box-shadow: var(--elevation-3);
+}
+
+@utility animate-in-up {
+  animation: majid-in-up var(--duration-base) var(--ease-out) both;
+}
+@utility animate-in-fade {
+  animation: majid-in-fade var(--duration-base) var(--ease-out) both;
+}
+
+@keyframes majid-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes majid-in-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Shimmer for skeleton loaders — content-shaped, not generic spinners. */
+@keyframes majid-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.majid-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.majid-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    oklch(1 0 0 / 0.55),
+    transparent
+  );
+  animation: majid-shimmer 1.6s var(--ease-in-out) infinite;
+}
+
+/* Soft pulse for live/urgent indicators (kitchen, real-time). */
+@keyframes majid-pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.animate-pulse-soft {
+  animation: majid-pulse-soft 2s var(--ease-in-out) infinite;
 }

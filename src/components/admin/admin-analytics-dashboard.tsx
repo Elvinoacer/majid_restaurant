@@ -441,10 +441,10 @@ function KpiCard({
   tone: "green" | "blue" | "purple" | "orange";
 }) {
   const toneClasses = {
-    green: "bg-green-500/10 text-green-700",
-    blue: "bg-blue-500/10 text-blue-700",
-    purple: "bg-purple-500/10 text-purple-700",
-    orange: "bg-orange-500/10 text-orange-700",
+    green: "bg-success-muted text-success",
+    blue: "bg-info-muted text-info",
+    purple: "bg-info-muted text-info",
+    orange: "bg-warning-muted text-warning-foreground",
   };
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -590,7 +590,7 @@ function ReturningDonut({ returning }: { returning: ReturningCustomerStats }) {
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-muted-foreground">Returning</span>
-          <span className="font-semibold text-green-700">{returning.returningCustomers}</span>
+          <span className="font-semibold text-success">{returning.returningCustomers}</span>
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-muted-foreground">New</span>

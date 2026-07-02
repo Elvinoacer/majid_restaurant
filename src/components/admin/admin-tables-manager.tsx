@@ -122,7 +122,7 @@ export function AdminTablesManager({ slug, staffRole, initialTables }: Props) {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-red-600 hover:text-red-700"
+                      className="text-danger hover:text-danger"
                       onClick={() => {
                         if (!confirm(`Delete ${t.label}? Existing orders will keep their table reference.`)) return;
                         startTransition(async () => {

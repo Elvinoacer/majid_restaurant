@@ -69,9 +69,9 @@ type LedgerEntry = {
 };
 
 const ENTRY_TONE: Record<LedgerEntry["entryType"], string> = {
-  ACCRUAL: "bg-green-500/15 text-green-700",
-  REDEMPTION: "bg-orange-500/15 text-orange-700",
-  ADJUSTMENT: "bg-blue-500/15 text-blue-700",
+  ACCRUAL: "bg-success-muted text-success",
+  REDEMPTION: "bg-warning-muted text-warning-foreground",
+  ADJUSTMENT: "bg-info-muted text-info",
   EXPIRY: "bg-muted text-muted-foreground",
 };
 
@@ -251,7 +251,7 @@ export function AdminLoyaltyManager({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-600 hover:text-red-700"
+                        className="text-danger hover:text-danger"
                         onClick={() => {
                           if (!confirm("Delete this reward rule? This cannot be undone.")) return;
                           startTransition(async () => {
@@ -485,7 +485,7 @@ function CustomerLoyaltyActions({
             </Button>
           </div>
           {selectedRule && selectedRule.pointsRequired && selectedRule.pointsRequired > customer.loyaltyPoints && (
-            <p className="mt-1 text-xs text-red-600">
+            <p className="mt-1 text-xs text-danger">
               Customer needs {selectedRule.pointsRequired - customer.loyaltyPoints} more points to claim this reward.
             </p>
           )}
@@ -587,7 +587,7 @@ function CustomerLoyaltyActions({
                             {e.entryType.toLowerCase()}
                           </span>
                         </td>
-                        <td className={cn("px-2 py-1.5 text-right font-mono", e.points >= 0 ? "text-green-700" : "text-orange-700")}>
+                        <td className={cn("px-2 py-1.5 text-right font-mono", e.points >= 0 ? "text-success" : "text-warning-foreground")}>
                           {e.points >= 0 ? "+" : ""}{e.points}
                         </td>
                         <td className="px-2 py-1.5 text-right font-mono">{e.balanceAfter}</td>

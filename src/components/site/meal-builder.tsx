@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { useCart } from "@/lib/cart/store";
 import { formatKsh } from "@/lib/whatsapp/order";
 import type { MenuItemWithTags } from "@/lib/menu";
+import { Container } from "@/components/premium/container";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -239,15 +240,15 @@ export function MealBuilder({ slug, items: _items }: MealBuilderProps) {
   const stageItems = itemsByStage[currentStage.id];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+    <Container size="wide" className="py-6 sm:py-10">
       {/* Header */}
-      <header className="mb-5">
-        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+      <header className="mb-6">
+        <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
           <Sparkles className="h-3.5 w-3.5" />
           Combo builder
         </div>
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">Build your meal</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Build your meal</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
           Four steps: Base, Protein, Drink, Dessert. Mix and match — we&apos;ll
           keep a running total.
         </p>
@@ -420,7 +421,7 @@ export function MealBuilder({ slug, items: _items }: MealBuilderProps) {
           </div>
         </div>
       </div>
-    </div>
+    </Container>
   );
 }
 

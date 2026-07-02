@@ -1,5 +1,9 @@
+import { ImageIcon } from "lucide-react";
 import { GalleryGrid } from "@/components/site/gallery-grid";
 import { getContextRestaurant } from "@/lib/restaurant/context";
+import { Container } from "@/components/premium/container";
+import { PageHeader } from "@/components/premium/page-header";
+import { EmptyState } from "@/components/premium/empty-state";
 
 export const dynamic = "force-dynamic";
 
@@ -17,24 +21,22 @@ export default async function GalleryPage({
   });
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      <header className="mb-5">
-        <h1 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-          Gallery
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          A peek at {restaurant.name}&apos;s food, dining room, and people.
-        </p>
-      </header>
+    <Container className="py-6 sm:py-10">
+      <PageHeader
+        title="Gallery"
+        subtitle={`A peek at ${restaurant.name}'s food, dining room, and people.`}
+      />
 
       {images.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          No images yet.
-        </div>
+        <EmptyState
+          icon={<ImageIcon className="h-7 w-7" />}
+          title="No images yet"
+          description="Photos of our food and space will appear here soon."
+        />
       ) : (
         <GalleryGrid images={images} />
       )}
-    </div>
+    </Container>
   );
 }
 

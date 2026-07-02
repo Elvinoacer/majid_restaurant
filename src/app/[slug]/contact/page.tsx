@@ -6,6 +6,10 @@ import {
   fetchHoursForRestaurant,
   dayName,
 } from "@/lib/restaurant/hours";
+import { Container } from "@/components/premium/container";
+import { PageHeader } from "@/components/premium/page-header";
+import { PremiumCard } from "@/components/premium/card";
+import { StatusPill } from "@/components/premium/status-pill";
 
 export const dynamic = "force-dynamic";
 
@@ -27,15 +31,11 @@ export default async function ContactPage({
   const whatsappUrl = `https://wa.me/${restaurant.whatsappPhone.replace(/[^\d]/g, "")}`;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-foreground sm:text-4xl">
-          Contact Us
-        </h1>
-        <p className="mt-1 text-base text-muted-foreground">
-          Reach us directly — we&apos;re here every day from 7am to 10pm.
-        </p>
-      </header>
+    <Container size="wide" className="py-6 sm:py-10">
+      <PageHeader
+        title="Contact Us"
+        subtitle="Reach us directly — we're here every day from 7am to 10pm."
+      />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Contact methods */}
@@ -68,30 +68,26 @@ export default async function ContactPage({
           />
 
           {/* Hours */}
-          <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
+          <PremiumCard className="p-5">
+            <div className="mb-4 flex items-center gap-2">
               <Clock className="h-5 w-5 text-accent" />
               <h2 className="font-display text-lg font-semibold text-foreground">
                 Opening Hours
               </h2>
-              <span
-                className={`ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                  hoursToday.isOpenNow
-                    ? "bg-green-500/15 text-green-700"
-                    : "bg-red-500/15 text-red-700"
-                }`}
-              >
-                {hoursToday.isOpenNow ? "Open now" : "Closed"}
+              <span className="ml-auto">
+                <StatusPill tone={hoursToday.isOpenNow ? "success" : "danger"} pulse={hoursToday.isOpenNow}>
+                  {hoursToday.isOpenNow ? "Open now" : "Closed"}
+                </StatusPill>
               </span>
             </div>
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-0.5 text-sm">
               {weekly.map((h) => (
                 <li
                   key={h.id}
-                  className="flex items-center justify-between gap-3 border-b border-border/40 py-1 last:border-0"
+                  className="flex items-center justify-between gap-3 border-b border-border/40 py-2 last:border-0"
                 >
                   <span className="text-foreground/80">{dayName(h.dayOfWeek)}</span>
-                  <span className="text-muted-foreground">
+                  <span className="font-medium tabular-nums text-muted-foreground">
                     {h.isClosed
                       ? "Closed"
                       : `${h.openTime} – ${h.closeTime}`}
@@ -99,11 +95,11 @@ export default async function ContactPage({
                 </li>
               ))}
             </ul>
-          </section>
+          </PremiumCard>
         </div>
 
         {/* Map */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <h2 className="font-display text-lg font-semibold text-foreground">
             Find Us
           </h2>
@@ -116,7 +112,7 @@ export default async function ContactPage({
           />
         </div>
       </div>
-    </div>
+    </Container>
   );
 }
 
@@ -134,12 +130,12 @@ function ContactRow({
   external?: boolean;
 }) {
   const content = (
-    <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-accent/40">
-      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+    <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 elevation-1 transition-all hover:elevation-2 hover:border-primary/20">
+      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {label}
         </p>
         <p className="break-words text-sm font-medium text-foreground">{value}</p>

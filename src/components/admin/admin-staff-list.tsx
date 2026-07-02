@@ -46,9 +46,9 @@ type Staff = {
 
 const ROLE_COLOR: Record<StaffRole, string> = {
   OWNER: "bg-primary/15 text-primary",
-  MANAGER: "bg-blue-500/15 text-blue-700",
-  KITCHEN: "bg-orange-500/15 text-orange-700",
-  FRONT_OF_HOUSE: "bg-purple-500/15 text-purple-700",
+  MANAGER: "bg-info-muted text-info",
+  KITCHEN: "bg-warning-muted text-warning-foreground",
+  FRONT_OF_HOUSE: "bg-info-muted text-info",
 };
 
 const ROLE_LABEL: Record<StaffRole, string> = {
@@ -242,7 +242,7 @@ export function AdminStaffList({
                       <span className="text-xs text-muted-foreground">(you)</span>
                     )}
                     {!s.isActive && (
-                      <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                      <span className="rounded-full bg-danger/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-danger">
                         Inactive
                       </span>
                     )}

@@ -62,23 +62,39 @@ export type NavItem = {
   label: string;
   icon: string; // lucide icon name — mapped to the component in admin-shell
   roles?: StaffRole[];
+  section?: NavSection;
 };
 
+export type NavSection =
+  | "operations"
+  | "guests"
+  | "content"
+  | "insights"
+  | "team";
+
 export const ROLE_NAV: NavItem[] = [
-  { href: "", label: "Overview", icon: "LayoutDashboard", roles: ["OWNER", "MANAGER"] },
-  { href: "/orders", label: "Orders", icon: "ShoppingBag", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/kitchen", label: "Kitchen", icon: "ChefHat", roles: ["OWNER", "MANAGER", "KITCHEN"] },
-  { href: "/reservations", label: "Reservations", icon: "Calendar", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/catering", label: "Catering", icon: "UtensilsCrossed", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/events", label: "Events", icon: "CalendarDays", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/menu", label: "Menu", icon: "Utensils", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/tables", label: "Tables & QR", icon: "QrCode", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/loyalty", label: "Loyalty", icon: "Gift", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/reviews", label: "Reviews", icon: "Star", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/careers", label: "Careers", icon: "Briefcase", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"] },
-  { href: "/analytics", label: "Analytics", icon: "BarChart3", roles: ["OWNER", "MANAGER"] },
-  { href: "/staff", label: "Staff", icon: "Users", roles: ["OWNER"] },
+  { href: "", label: "Overview", icon: "LayoutDashboard", roles: ["OWNER", "MANAGER"], section: "operations" },
+  { href: "/orders", label: "Orders", icon: "ShoppingBag", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "operations" },
+  { href: "/kitchen", label: "Kitchen", icon: "ChefHat", roles: ["OWNER", "MANAGER", "KITCHEN"], section: "operations" },
+  { href: "/reservations", label: "Reservations", icon: "Calendar", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "guests" },
+  { href: "/catering", label: "Catering", icon: "UtensilsCrossed", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "guests" },
+  { href: "/events", label: "Events", icon: "CalendarDays", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "guests" },
+  { href: "/tables", label: "Tables & QR", icon: "QrCode", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "guests" },
+  { href: "/loyalty", label: "Loyalty", icon: "Gift", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "guests" },
+  { href: "/menu", label: "Menu", icon: "Utensils", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "content" },
+  { href: "/reviews", label: "Reviews", icon: "Star", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "content" },
+  { href: "/careers", label: "Careers", icon: "Briefcase", roles: ["OWNER", "MANAGER", "FRONT_OF_HOUSE"], section: "content" },
+  { href: "/analytics", label: "Analytics", icon: "BarChart3", roles: ["OWNER", "MANAGER"], section: "insights" },
+  { href: "/staff", label: "Staff", icon: "Users", roles: ["OWNER"], section: "team" },
 ];
+
+export const NAV_SECTION_LABELS: Record<NavSection, string> = {
+  operations: "Operations",
+  guests: "Guests",
+  content: "Content",
+  insights: "Insights",
+  team: "Team",
+};
 
 /**
  * Returns the nav items visible to a given role.

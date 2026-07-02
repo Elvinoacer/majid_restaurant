@@ -49,6 +49,7 @@ export default async function AdminLayout({
     <AdminShell
       slug={slug}
       restaurantName={restaurant.name}
+      logoUrl={restaurant.logoUrl}
       staffName={session.name}
       staffRole={session.role}
     >

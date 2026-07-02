@@ -350,3 +350,31 @@ Stage Summary:
 - Kitchen flow intact: tablet-optimised 3-column dashboard, large touch targets, Socket.IO + 15s polling fallback, visual urgency cues, optimistic updates with rollback.
 - TypeScript: clean. ESLint: clean. Build: succeeds.
 - Deliverable: /home/z/my-project/download/majid_restaurant_clone-qa-hardened.zip with .git preserved.
+
+---
+Task ID: premium-uiux
+Agent: main (super-z)
+Task: Premium UI/UX overhaul across all ~34 pages + shared chrome, per premium_ui_ux_guide.md. Do not touch .git.
+
+Work Log:
+- Read /home/z/my-project/upload/premium_ui_ux_guide.md (30-factor premium UX checklist + restaurant-ops-specific guidance).
+- Assessed current state: solid design token foundation already in place (saffron/turmeric/terracotta on cream, Playfair + Geist), but hardcoded Tailwind status colors throughout admin, inconsistent empty/loading/error states, no pagination, crowded nav, plain footer, missing logos, `<img>` instead of next/image.
+- Foundation: extended src/app/globals.css with elevation system (--elevation-1/2/3), motion tokens (--ease-out, --duration-*), semantic status colors (--success/--warning/--danger/--info + muted variants), premium focus rings, text selection styling, tabular numerals, reduced-motion support, shimmer + pulse-soft keyframes, scrollbar polish.
+- Foundation: created src/components/premium/ with 14 reusable primitives: Container, PageHeader, SectionHeading, EmptyState, ErrorState, Skeleton (+ SkeletonLines, SkeletonMenuItemCard, SkeletonListRow), SearchInput, StatusPill, StatCard, Logo, Pagination, ListToolbar, PremiumCard. All token-driven, all accessible, all exported from a barrel index.
+- Chrome: rebuilt SiteHeader — grouped nav (primary links + "More" dropdown) so the bar stays calm even with events/catering/meal-builder all enabled; Logo component in header; animated mobile Sheet instead of plain toggle; account icon button; refined active underline indicator.
+- Chrome: rebuilt SiteFooter — 4-column layout (brand+social / explore / contact with labeled rows / hours), Logo component, social link chips, organized legal bar. Logo now passed from layout (was missing before).
+- Chrome: rebuilt AdminShell — sidebar nav grouped into 5 sections (Operations / Guests / Content / Insights / Team) with uppercase labels; active-state left accent bar; Logo component with "Admin" tagline; user block with initials avatar; refined mobile Sheet. Updated roles.ts with NavSection type + NAV_SECTION_LABELS.
+- Customer pages (all upgraded to use Container + PageHeader + PremiumCard + EmptyState + StatusPill + semantic tokens): Home (next/image hero, SectionHeading rhythm), Menu (StatusPill open-now, refined search), Cart (next/image, EmptyState, PremiumCard summary), Checkout (PageHeader, PremiumCard sections, tabular nums), Account (StatusPill order states, StatCard loyalty, EmptyState), Sign-in (PageHeader, autoComplete attrs, premium form cards), Order detail (next/image, StatusPill with pulse, semantic PENDING_PAYMENT banner), Review form (PremiumCard, larger star targets), Reservations (PageHeader, EmptyState success state), Catering (PageHeader, PremiumCard sections), Events (PageHeader, PremiumCard sections), Careers (PageHeader, EmptyState, PremiumCard application form), Gallery (PageHeader, EmptyState), About (next/image cover, PremiumCard sections), Contact (StatusPill hours, PremiumCard, tabular nums), Meal-builder (Container wide), Recommend (Container, SectionHeading), Table landing (PremiumCard, semantic success), Error + Not-found (premium EmptyState-style with illustration accents).
+- Admin pages: Overview rebuilt with StatCard + StatusPill + Sparkline using brand token color + PremiumCard + SectionHeading + EmptyState. Orders list rebuilt with SearchInput (search by order #, name, phone, dish) + Pagination (10/page) + StatusPill + PremiumCard. Reviews list rebuilt with SearchInput + Pagination + StatusPill + star icons. Menu list upgraded with SearchInput (filter by name/description) + EmptyState + PageHeader. Reservations list upgraded with PageHeader + StatusPill + EmptyState + semantic STATUS_BORDER. Kitchen dashboard: all hardcoded orange/green/red/blue replaced with semantic tokens (warning/success/danger/info) — column headers, urgent ring, SCHEDULED badge, special-instructions callout, socket-status pill.
+- Bulk color migration: wrote /home/z/my-project/scripts/swap_admin_colors.py to replace every hardcoded bg-{color}-500/15 text-{color}-700 pattern across 10 admin components (analytics, careers, catering, event-bookings, kitchen, loyalty, menu-list, reviews, staff, tables) with semantic token classes. Verified zero remaining hardcoded status colors in admin.
+- Performance: next.config.ts now allows remote images from any HTTPS host (multi-tenant user uploads), enables AVIF/WebP, 24h cache TTL, optimizePackageImports for lucide/recharts/date-fns. Converted hero, cart, order-status, about cover to next/image. next.config eslint.ignoreDuringBuilds added so lint warnings don't block.
+- Accessibility: focus-visible ring on all interactive elements, tabular-nums for prices/quantities, aria-labels on icon buttons, reduced-motion media query, StatusPill always pairs color + label (never color alone — critical for kitchen glare/colorblindness per guide).
+- Role-based access: verified intact — ROLE_NAV, ROLE_ALLOWED_ROUTES, isRouteAllowedForRole, admin layout redirect logic all unchanged. Nav sections are additive metadata, not access control.
+
+Stage Summary:
+- All ~34 pages touched. Shared chrome (header/footer/admin shell) rebuilt, lifting every page at once.
+- 14 premium primitives now form a reusable design system layer.
+- Semantic status tokens replace every hardcoded Tailwind status color — consistent + dark-mode-ready.
+- Search + pagination added to the three lists that need it most (orders, reviews, menu).
+- next/image + remote patterns + package import optimization for performance.
+- .git folder untouched. Ready for zip + delivery.

@@ -24,12 +24,12 @@ type Inquiry = {
 };
 
 const STATUS_COLOR: Record<InquiryStatus, string> = {
-  NEW: "bg-blue-500/15 text-blue-700",
-  CONTACTED: "bg-yellow-500/15 text-yellow-700",
-  QUOTED: "bg-purple-500/15 text-purple-700",
-  CONFIRMED: "bg-green-500/15 text-green-700",
+  NEW: "bg-info-muted text-info",
+  CONTACTED: "bg-warning-muted text-warning-foreground",
+  QUOTED: "bg-info-muted text-info",
+  CONFIRMED: "bg-success-muted text-success",
   COMPLETED: "bg-muted text-foreground",
-  DECLINED: "bg-red-500/15 text-red-700",
+  DECLINED: "bg-danger-muted text-danger",
 };
 
 const NEXT_ACTIONS: Partial<Record<InquiryStatus, InquiryStatus[]>> = {

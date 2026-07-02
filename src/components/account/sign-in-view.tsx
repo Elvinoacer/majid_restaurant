@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { signIn } from "next-auth/react";
 import { customerSignup } from "@/lib/menu/actions";
+import { Container } from "@/components/premium/container";
+import { PageHeader } from "@/components/premium/page-header";
 
 export function SignInView({ slug }: { slug: string }) {
   const router = useRouter();
@@ -58,7 +60,6 @@ export function SignInView({ slug }: { slug: string }) {
         toast.error(result.error);
         return;
       }
-      // Auto sign-in after signup.
       const res = await signIn("credentials", {
         email: signupEmail,
         password: signupPassword,
@@ -76,12 +77,11 @@ export function SignInView({ slug }: { slug: string }) {
   };
 
   return (
-    <div className="mx-auto max-w-md px-4 py-8 sm:py-12">
-      <h1 className="mb-1 font-display text-2xl font-bold sm:text-3xl">Your account</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        Sign in to track orders, save your details, and leave reviews.
-        Guest checkout is always available — you don&apos;t need an account to order.
-      </p>
+    <Container size="narrow" className="py-8 sm:py-12">
+      <PageHeader
+        title="Your account"
+        subtitle="Sign in to track orders, save your details, and leave reviews. Guest checkout is always available — you don't need an account to order."
+      />
 
       <Tabs defaultValue="signin">
         <TabsList className="grid w-full grid-cols-2">
@@ -96,7 +96,10 @@ export function SignInView({ slug }: { slug: string }) {
         </TabsList>
 
         <TabsContent value="signin">
-          <form onSubmit={handleSignIn} className="mt-4 space-y-3 rounded-xl border border-border bg-card p-4">
+          <form
+            onSubmit={handleSignIn}
+            className="mt-4 space-y-4 rounded-2xl border border-border bg-card p-5 elevation-1"
+          >
             <div>
               <Label htmlFor="signin-email">Email</Label>
               <Input
@@ -105,8 +108,9 @@ export function SignInView({ slug }: { slug: string }) {
                 value={signinEmail}
                 onChange={(e) => setSigninEmail(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1.5"
                 placeholder="aisha@example.com"
+                autoComplete="email"
               />
             </div>
             <div>
@@ -117,17 +121,26 @@ export function SignInView({ slug }: { slug: string }) {
                 value={signinPassword}
                 onChange={(e) => setSigninPassword(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1.5"
+                autoComplete="current-password"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+            <Button type="submit" className="w-full gap-1.5" disabled={pending}>
+              {pending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogIn className="h-4 w-4" />
+              )}
+              {pending ? "Signing in…" : "Sign in"}
             </Button>
           </form>
         </TabsContent>
 
         <TabsContent value="signup">
-          <form onSubmit={handleSignUp} className="mt-4 space-y-3 rounded-xl border border-border bg-card p-4">
+          <form
+            onSubmit={handleSignUp}
+            className="mt-4 space-y-4 rounded-2xl border border-border bg-card p-5 elevation-1"
+          >
             <div>
               <Label htmlFor="signup-name">Name</Label>
               <Input
@@ -135,7 +148,8 @@ export function SignInView({ slug }: { slug: string }) {
                 value={signupName}
                 onChange={(e) => setSignupName(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1.5"
+                autoComplete="name"
               />
             </div>
             <div>
@@ -146,7 +160,8 @@ export function SignInView({ slug }: { slug: string }) {
                 value={signupEmail}
                 onChange={(e) => setSignupEmail(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1.5"
+                autoComplete="email"
               />
             </div>
             <div>
@@ -155,8 +170,9 @@ export function SignInView({ slug }: { slug: string }) {
                 id="signup-phone"
                 value={signupPhone}
                 onChange={(e) => setSignupPhone(e.target.value)}
-                className="mt-1"
+                className="mt-1.5"
                 placeholder="0712 345 678"
+                autoComplete="tel"
               />
             </div>
             <div>
@@ -167,23 +183,32 @@ export function SignInView({ slug }: { slug: string }) {
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
                 required
-                className="mt-1"
+                className="mt-1.5"
                 placeholder="At least 6 characters"
+                autoComplete="new-password"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
+            <Button type="submit" className="w-full gap-1.5" disabled={pending}>
+              {pending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              {pending ? "Creating…" : "Create account"}
             </Button>
           </form>
         </TabsContent>
       </Tabs>
 
-      <p className="mt-4 text-center text-xs text-muted-foreground">
+      <p className="mt-5 text-center text-xs text-muted-foreground">
         Don&apos;t want an account?{" "}
-        <Link href={`/${slug}/menu`} className="text-primary underline-offset-2 hover:underline">
+        <Link
+          href={`/${slug}/menu`}
+          className="font-medium text-primary underline-offset-2 hover:underline"
+        >
           Continue as guest
         </Link>
       </p>
-    </div>
+    </Container>
   );
 }

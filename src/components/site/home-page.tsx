@@ -1,7 +1,19 @@
 import Link from "next/link";
-import { ArrowRight, Clock, MapPin, MessageCircle, Sparkles, Star, Utensils } from "lucide-react";
+import Image from "next/image";
+import {
+  ArrowRight,
+  Clock,
+  MapPin,
+  MessageCircle,
+  Sparkles,
+  Star,
+  Utensils,
+} from "lucide-react";
 import type { Restaurant, Promotion, Review } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
+import { Container } from "@/components/premium/container";
+import { SectionHeading } from "@/components/premium/section-heading";
+import { PremiumCard } from "@/components/premium/card";
 import { PromotionsCarousel } from "@/components/site/promotions-carousel";
 import { EmbeddedMap } from "@/components/site/embedded-map";
 import { FcmOptIn } from "@/components/site/fcm-opt-in";
@@ -15,7 +27,9 @@ type HomePageProps = {
   restaurant: Restaurant;
   hoursToday: ReturnType<typeof computeOpenStatus>;
   weeklyHours: Awaited<ReturnType<typeof fetchHoursForRestaurant>>["weekly"];
-  promotions: Array<Pick<Promotion, "id" | "title" | "description" | "imageUrl" | "linkedCategoryId" | "sortOrder">>;
+  promotions: Array<
+    Pick<Promotion, "id" | "title" | "description" | "imageUrl" | "linkedCategoryId" | "sortOrder">
+  >;
   reviews: Array<Pick<Review, "rating" | "comment" | "createdAt">>;
   popularItems: ReturnType<typeof withTagsList>;
   publicUrl: string;
@@ -67,11 +81,13 @@ export function HomePage({
       {/* Hero */}
       <section className="relative isolate overflow-hidden">
         {restaurant.coverImageUrl && (
-           
-          <img
+          <Image
             src={restaurant.coverImageUrl}
             alt=""
             aria-hidden
+            fill
+            priority
+            sizes="100vw"
             className="absolute inset-0 -z-10 h-full w-full object-cover"
           />
         )}
@@ -79,18 +95,18 @@ export function HomePage({
           className="absolute inset-0 -z-10"
           style={{
             background:
-              "linear-gradient(to bottom, rgba(20,15,5,0.6) 0%, rgba(20,15,5,0.75) 100%)",
+              "linear-gradient(to bottom, oklch(0.15 0.02 70 / 0.65) 0%, oklch(0.15 0.02 70 / 0.78) 100%)",
           }}
         />
 
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20 md:py-24">
+        <Container className="py-16 sm:py-24 md:py-28">
           <div className="max-w-2xl">
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-white/85">
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-white/90">
               <span
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-sm ${
                   hoursToday.isOpenNow
-                    ? "bg-green-500/90 text-white"
-                    : "bg-red-500/90 text-white"
+                    ? "bg-success/90 text-success-foreground"
+                    : "bg-danger/90 text-danger-foreground"
                 }`}
               >
                 <Clock className="h-3 w-3" />
@@ -105,17 +121,17 @@ export function HomePage({
               )}
             </div>
 
-            <h1 className="font-display text-3xl font-bold leading-tight text-white sm:text-4xl md:text-5xl">
+            <h1 className="font-display text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl md:text-6xl">
               {restaurant.name}
             </h1>
             {restaurant.tagline && (
-              <p className="mt-2 text-base text-white/85 sm:text-lg">
+              <p className="mt-3 max-w-xl text-lg text-white/85 sm:text-xl">
                 {restaurant.tagline}
               </p>
             )}
 
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Button asChild size="lg" className="gap-1.5">
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="gap-2">
                 <Link href={`/${restaurant.slug}/menu`}>
                   <Utensils className="h-4 w-4" />
                   Browse Menu &amp; Order
@@ -125,7 +141,7 @@ export function HomePage({
                 asChild
                 size="lg"
                 variant="secondary"
-                className="gap-1.5"
+                className="gap-2 backdrop-blur-sm"
               >
                 <a href={whatsappUrl} target="_blank" rel="noreferrer">
                   <MessageCircle className="h-4 w-4" />
@@ -134,7 +150,7 @@ export function HomePage({
               </Button>
             </div>
 
-            <div className="mt-5 flex items-start gap-2 text-sm text-white/85">
+            <div className="mt-6 flex items-start gap-2 text-sm text-white/85">
               <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <span>{restaurant.address}</span>
             </div>
@@ -144,13 +160,13 @@ export function HomePage({
           <div className="absolute right-4 top-4 hidden sm:block">
             <FcmOptIn restaurantSlug={restaurant.slug} />
           </div>
-        </div>
+        </Container>
       </section>
 
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <Container className="py-10 sm:py-14">
         {/* Promotions carousel */}
         {promotions.length > 0 && (
-          <section className="mb-10" aria-labelledby="promos-heading">
+          <section className="mb-12" aria-labelledby="promos-heading">
             <h2 id="promos-heading" className="sr-only">
               Current promotions
             </h2>
@@ -160,44 +176,40 @@ export function HomePage({
 
         {/* Today's specials — popular items */}
         {popularItems.length > 0 && (
-          <section className="mb-12" aria-labelledby="popular-heading">
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2
-                id="popular-heading"
-                className="font-display text-xl font-bold text-foreground sm:text-2xl"
-              >
-                Popular Today
-              </h2>
-              <Link
-                href={`/${restaurant.slug}/menu`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
-              >
-                See full menu
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <section className="mb-14">
+            <SectionHeading
+              title="Popular Today"
+              description="What other diners are loving right now"
+              actionHref={`/${restaurant.slug}/menu`}
+              actionLabel="See full menu"
+            />
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
               {popularItems.slice(0, 4).map((item) => (
                 <Link
                   key={item.id}
                   href={`/${restaurant.slug}/menu`}
-                  className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
+                  className="group overflow-hidden rounded-2xl border border-border bg-card elevation-1 transition-all duration-200 hover:elevation-2 hover:-translate-y-0.5"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-muted">
                     {item.imageUrl && (
-                       
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={item.imageUrl}
                         alt={item.name}
                         loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                       />
                     )}
                   </div>
-                  <div className="p-3">
-                    <h3 className="text-sm font-semibold text-foreground">{item.name}</h3>
-                    <p className="mt-1 text-sm font-semibold text-primary">
-                      KSh {formatKsh(item.price)}
+                  <div className="p-3.5">
+                    <h3 className="text-sm font-semibold leading-snug text-foreground">
+                      {item.name}
+                    </h3>
+                    <p className="mt-1.5 font-display text-sm font-bold tabular-nums text-primary">
+                      <span className="text-xs font-normal text-muted-foreground">
+                        KSh{" "}
+                      </span>
+                      {formatKsh(item.price)}
                     </p>
                   </div>
                 </Link>
@@ -206,25 +218,19 @@ export function HomePage({
           </section>
         )}
 
-        {/* AI Food Recommendation (Phase 4, PRD §5.22) */}
-        <section className="mb-12" aria-labelledby="recommend-heading">
-          <div className="mb-4 flex items-baseline justify-between">
-            <h2
-              id="recommend-heading"
-              className="font-display text-xl font-bold text-foreground sm:text-2xl"
-            >
+        {/* AI Food Recommendation */}
+        <section className="mb-14" aria-labelledby="recommend-heading">
+          <SectionHeading
+            title={
               <span className="inline-flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
                 Not sure what to order?
               </span>
-            </h2>
-            <Link
-              href={`/${restaurant.slug}/recommend`}
-              className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
-            >
-              Full experience <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
+            }
+            description="Tell us your mood and we'll suggest the perfect dish"
+            actionHref={`/${restaurant.slug}/recommend`}
+            actionLabel="Full experience"
+          />
           <AiRecommender
             restaurantName={restaurant.name}
             whatsappPhone={restaurant.whatsappPhone}
@@ -234,41 +240,39 @@ export function HomePage({
 
         {/* Reviews snippet */}
         {reviews.length > 0 && (
-          <section className="mb-12" aria-labelledby="reviews-heading">
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2
-                id="reviews-heading"
-                className="font-display text-xl font-bold text-foreground sm:text-2xl"
-              >
-                What diners are saying
-              </h2>
-              {avgRating && (
-                <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  {avgRating} average
-                </span>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          <section className="mb-14" aria-labelledby="reviews-heading">
+            <SectionHeading
+              title="What diners are saying"
+              description="Real reviews from real guests"
+              action={
+                avgRating && (
+                  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <span className="font-semibold text-foreground">{avgRating}</span>
+                    average
+                  </span>
+                )
+              }
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {reviews.slice(0, 4).map((r, i) => (
-                <article
-                  key={i}
-                  className="rounded-xl border border-border bg-card p-4"
-                >
-                  <div className="mb-1 flex items-center gap-0.5">
+                <PremiumCard key={i} className="p-5">
+                  <div className="mb-2 flex items-center gap-0.5">
                     {Array.from({ length: 5 }).map((_, idx) => (
                       <Star
                         key={idx}
                         className={`h-3.5 w-3.5 ${
                           idx < r.rating
                             ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted-foreground/30"
+                            : "text-muted-foreground/25"
                         }`}
                       />
                     ))}
                   </div>
-                  <p className="text-sm text-foreground/80">&ldquo;{r.comment}&rdquo;</p>
-                </article>
+                  <p className="text-sm leading-relaxed text-foreground/85">
+                    &ldquo;{r.comment}&rdquo;
+                  </p>
+                </PremiumCard>
               ))}
             </div>
           </section>
@@ -276,12 +280,10 @@ export function HomePage({
 
         {/* Map */}
         <section aria-labelledby="location-heading" className="mb-4">
-          <h2
-            id="location-heading"
-            className="mb-3 font-display text-xl font-bold text-foreground sm:text-2xl"
-          >
-            Find Us
-          </h2>
+          <SectionHeading
+            title="Find Us"
+            description={restaurant.address}
+          />
           <EmbeddedMap
             name={restaurant.name}
             address={restaurant.address}
@@ -290,7 +292,7 @@ export function HomePage({
             parkingInfo={restaurant.parkingInfo}
           />
         </section>
-      </div>
+      </Container>
     </>
   );
 }

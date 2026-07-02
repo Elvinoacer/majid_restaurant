@@ -26,6 +26,9 @@ import {
   upsertCategory,
   deleteCategory,
 } from "@/lib/menu/actions";
+import { PageHeader } from "@/components/premium/page-header";
+import { SearchInput } from "@/components/premium/search-input";
+import { EmptyState } from "@/components/premium/empty-state";
 
 type Item = {
   id: string;
@@ -60,6 +63,21 @@ export function AdminMenuList({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showCategories, setShowCategories] = useState(false);
+  const [query, setQuery] = useState("");
+
+  // Filter categories+items by search query (name + description).
+  const filteredCategories = query.trim()
+    ? categories
+        .map((cat) => ({
+          ...cat,
+          items: cat.items.filter(
+            (it) =>
+              it.name.toLowerCase().includes(query.toLowerCase()) ||
+              (it.description?.toLowerCase().includes(query.toLowerCase()) ?? false),
+          ),
+        }))
+        .filter((cat) => cat.items.length > 0)
+    : categories;
 
   const handleToggle = (id: string) => {
     startTransition(async () => {
@@ -88,49 +106,64 @@ export function AdminMenuList({
 
   return (
     <div>
-      <header className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h1 className="font-display text-2xl font-bold sm:text-3xl">Menu</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Edit items, toggle availability, manage categories.
-          </p>
+      <PageHeader
+        title="Menu"
+        subtitle="Edit items, toggle availability, manage categories."
+        actions={
+          <div className="flex items-center gap-2">
+            <Dialog open={showCategories} onOpenChange={setShowCategories}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-1.5">
+                  <FolderPlus className="h-4 w-4" />
+                  Categories
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Manage categories</DialogTitle>
+                </DialogHeader>
+                <CategoriesManager categories={categories} onDone={() => setShowCategories(false)} />
+              </DialogContent>
+            </Dialog>
+            <Button asChild>
+              <Link href={`/${slug}/admin/menu/new`}>
+                <Plus className="mr-1 h-4 w-4" />
+                New item
+              </Link>
+            </Button>
+          </div>
+        }
+      />
+
+      {categories.length > 0 && (
+        <div className="mb-5">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search menu items by name or description…"
+            ariaLabel="Search menu items"
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <Dialog open={showCategories} onOpenChange={setShowCategories}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-1.5">
-                <FolderPlus className="h-4 w-4" />
-                Categories
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Manage categories</DialogTitle>
-              </DialogHeader>
-              <CategoriesManager categories={categories} onDone={() => setShowCategories(false)} />
-            </DialogContent>
-          </Dialog>
-          <Button asChild>
-            <Link href={`/${slug}/admin/menu/new`}>
-              <Plus className="mr-1 h-4 w-4" />
-              New item
-            </Link>
-          </Button>
-        </div>
-      </header>
+      )}
 
       {categories.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            No categories yet. Click <strong>Categories</strong> above to create your first one.
-          </p>
-        </div>
+        <EmptyState
+          icon={<FolderPlus className="h-7 w-7" />}
+          title="No categories yet"
+          description="Click Categories above to create your first one, then add menu items to it."
+        />
+      ) : filteredCategories.length === 0 ? (
+        <EmptyState
+          icon={<FolderPlus className="h-7 w-7" />}
+          title="No matching items"
+          description="Try a different search term."
+        />
       ) : (
         <div className="space-y-6">
-          {categories.map((cat) => (
+          {filteredCategories.map((cat) => (
             <section key={cat.id}>
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold">
+              <div className="mb-2.5 flex items-center justify-between">
+                <h2 className="font-display text-lg font-semibold text-foreground">
                   {cat.name}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
                     {cat.items.length} item{cat.items.length === 1 ? "" : "s"}
@@ -170,7 +203,7 @@ export function AdminMenuList({
                             </span>
                           )}
                           {!item.isAvailable && (
-                            <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                            <span className="rounded-full bg-danger/15 px-1.5 py-0.5 text-[10px] font-semibold text-danger">
                               Sold out
                             </span>
                           )}

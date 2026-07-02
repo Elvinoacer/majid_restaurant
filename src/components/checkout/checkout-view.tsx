@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Loader2, MapPin, Store, Utensils, ShieldCheck, CreditCard, Banknote, Check } from "lucide-react";
+import { ArrowRight, Loader2, MapPin, Store, Utensils, ShieldCheck, CreditCard, Banknote, Check, ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart/store";
 import { formatKsh } from "@/lib/whatsapp/order";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Container } from "@/components/premium/container";
+import { PageHeader } from "@/components/premium/page-header";
+import { EmptyState } from "@/components/premium/empty-state";
+import { PremiumCard } from "@/components/premium/card";
 import {
   createOrderFromCart,
   submitOrder,
@@ -52,15 +56,18 @@ export function CheckoutView({ slug }: { slug: string }) {
 
   if (lines.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12 text-center sm:py-20">
-        <h2 className="font-display text-xl font-semibold">Nothing to check out</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your cart is empty — add some items first.
-        </p>
-        <Button asChild className="mt-6">
-          <Link href={`/${slug}/menu`}>Browse menu</Link>
-        </Button>
-      </div>
+      <Container size="narrow" className="py-12 sm:py-20">
+        <EmptyState
+          icon={<ShoppingBag className="h-7 w-7" />}
+          title="Nothing to check out"
+          description="Your cart is empty — add some items from the menu first."
+          action={
+            <Button asChild>
+              <Link href={`/${slug}/menu`}>Browse menu</Link>
+            </Button>
+          }
+        />
+      </Container>
     );
   }
 
@@ -140,12 +147,16 @@ export function CheckoutView({ slug }: { slug: string }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
-      <h1 className="mb-5 font-display text-2xl font-bold sm:text-3xl">Checkout</h1>
+    <form onSubmit={handleSubmit}>
+      <Container size="default" className="py-6 sm:py-10">
+        <PageHeader
+          title="Checkout"
+          subtitle="Review your order and choose how you'd like it."
+        />
 
       {/* Fulfillment */}
-      <section className="mb-6 rounded-xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <PremiumCard className="mb-6 p-4 sm:p-5">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           How would you like your order?
         </h2>
         <RadioGroup
@@ -240,8 +251,8 @@ export function CheckoutView({ slug }: { slug: string }) {
       </section>
 
       {/* Contact */}
-      <section className="mb-6 rounded-xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <PremiumCard className="mb-6 p-4 sm:p-5">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Your contact details
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -281,8 +292,8 @@ export function CheckoutView({ slug }: { slug: string }) {
       </section>
 
       {/* Payment */}
-      <section className="mb-6 rounded-xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <PremiumCard className="mb-6 p-4 sm:p-5">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Payment method
         </h2>
         <RadioGroup
@@ -328,25 +339,29 @@ export function CheckoutView({ slug }: { slug: string }) {
       </section>
 
       {/* Summary */}
-      <section className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <PremiumCard className="mb-6 bg-muted/30 p-4 sm:p-5">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Order summary
         </h2>
-        <ul className="space-y-1 text-sm">
+        <ul className="space-y-1.5 text-sm">
           {lines.map((l) => (
-            <li key={l.menuItemId} className="flex justify-between">
-              <span className="truncate pr-2">
-                {l.quantity}× {l.name}
+            <li key={l.menuItemId} className="flex justify-between gap-2">
+              <span className="truncate text-foreground/80">
+                <span className="font-medium tabular-nums text-foreground">{l.quantity}×</span>{" "}
+                {l.name}
               </span>
-              <span className="font-medium">KSh {formatKsh(l.unitPrice * l.quantity)}</span>
+              <span className="font-medium tabular-nums">KSh {formatKsh(l.unitPrice * l.quantity)}</span>
             </li>
           ))}
         </ul>
         <div className="mt-3 flex justify-between border-t border-border pt-3">
           <span className="font-semibold">Total</span>
-          <span className="font-display text-xl font-bold">KSh {formatKsh(total)}</span>
+          <span className="font-display text-xl font-bold tabular-nums">
+            <span className="text-sm font-normal text-muted-foreground">KSh </span>
+            {formatKsh(total)}
+          </span>
         </div>
-      </section>
+      </PremiumCard>
 
       <Button type="submit" size="lg" className="w-full gap-2" disabled={pending}>
         {pending ? (
@@ -365,6 +380,7 @@ export function CheckoutView({ slug }: { slug: string }) {
         By placing this order you agree to be contacted by the restaurant about
         your order.
       </p>
+      </Container>
     </form>
   );
 }

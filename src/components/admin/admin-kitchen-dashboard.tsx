@@ -216,8 +216,8 @@ export function AdminKitchenDashboard({
               "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
               socketUrl
                 ? socketConnected
-                  ? "bg-green-500/15 text-green-700"
-                  : "bg-yellow-500/15 text-yellow-700"
+                  ? "bg-success-muted text-success"
+                  : "bg-warning-muted text-warning-foreground"
                 : "bg-muted text-muted-foreground",
             )}
           >
@@ -297,12 +297,12 @@ type ColumnTone = "orange" | "green" | "muted";
 
 const TONE_STYLES: Record<ColumnTone, { header: string; count: string }> = {
   orange: {
-    header: "border-orange-300 bg-orange-50",
-    count: "bg-orange-500 text-white",
+    header: "border-warning/40 bg-warning-muted/50",
+    count: "bg-warning text-warning-foreground",
   },
   green: {
-    header: "border-green-300 bg-green-50",
-    count: "bg-green-500 text-white",
+    header: "border-success/40 bg-success-muted/50",
+    count: "bg-success text-success-foreground",
   },
   muted: {
     header: "border-border bg-muted/40",
@@ -410,9 +410,9 @@ function KitchenOrderCard({
   return (
     <li
       className={cn(
-        "rounded-lg border-2 bg-background p-3 shadow-sm",
+        "rounded-xl border-2 bg-background p-3 elevation-1",
         isUrgent
-          ? "border-red-400 ring-2 ring-red-100"
+          ? "border-danger ring-2 ring-danger-muted"
           : "border-border",
       )}
     >
@@ -423,7 +423,7 @@ function KitchenOrderCard({
             #{order.id.slice(-6).toUpperCase()}
           </span>
           {isScheduled && (
-            <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+            <span className="rounded-full bg-info-muted px-2 py-0.5 text-[10px] font-semibold text-info">
               SCHEDULED
             </span>
           )}
@@ -431,7 +431,7 @@ function KitchenOrderCard({
         <span
           className={cn(
             "inline-flex items-center gap-1 text-xs font-semibold",
-            isUrgent ? "text-red-600" : "text-muted-foreground",
+            isUrgent ? "text-danger" : "text-muted-foreground",
           )}
         >
           <Clock className="h-3 w-3" />
@@ -470,7 +470,7 @@ function KitchenOrderCard({
               <span className="font-medium">{it.name}</span>
             </div>
             {it.notes && (
-              <p className="ml-6 text-xs text-orange-700">↳ {it.notes}</p>
+              <p className="ml-6 text-xs text-warning-foreground">↳ {it.notes}</p>
             )}
           </li>
         ))}
@@ -478,7 +478,7 @@ function KitchenOrderCard({
 
       {/* Special instructions */}
       {order.specialInstructions && (
-        <div className="mt-2 flex items-start gap-1.5 rounded-md bg-orange-50 p-2 text-xs text-orange-900">
+        <div className="mt-2 flex items-start gap-1.5 rounded-md bg-warning-muted p-2 text-xs text-warning-foreground">
           <MessageSquare className="mt-0.5 h-3 w-3 flex-shrink-0" />
           <span>{order.specialInstructions}</span>
         </div>
@@ -486,7 +486,7 @@ function KitchenOrderCard({
 
       {/* Scheduled-for hint */}
       {isScheduled && (
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-700">
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-info">
           <Clock className="h-3 w-3" />
           Fire at {new Date(order.scheduledFor!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </div>

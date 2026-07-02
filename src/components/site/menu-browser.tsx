@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { SearchX } from "lucide-react";
 import { MenuSearchBar } from "@/components/site/menu-search-bar";
 import {
   MenuFilterChips,
   type FilterChip,
 } from "@/components/site/menu-filter-chips";
 import { MenuItemCard } from "@/components/site/menu-item-card";
+import { EmptyState } from "@/components/premium/empty-state";
 import { searchMenuItems, type MenuItemWithTags } from "@/lib/menu";
 import type { MenuCategory, MenuItem } from "@/generated/prisma/client";
 
@@ -165,11 +167,10 @@ export function MenuBrowser({
 
 function NoResults() {
   return (
-    <div className="rounded-xl border border-dashed border-border p-10 text-center">
-      <p className="text-base font-medium text-foreground">No dishes match.</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Try a different search or clear your filters.
-      </p>
-    </div>
+    <EmptyState
+      icon={<SearchX className="h-7 w-7" />}
+      title="No dishes match"
+      description="Try a different search term, or clear your filters to see the full menu."
+    />
   );
 }

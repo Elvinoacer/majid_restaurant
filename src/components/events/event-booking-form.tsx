@@ -9,6 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { createEventBooking } from "@/lib/events/actions";
+import { Container } from "@/components/premium/container";
+import { PageHeader } from "@/components/premium/page-header";
+import { PremiumCard } from "@/components/premium/card";
+import { EmptyState } from "@/components/premium/empty-state";
 
 type Props = {
   slug: string;
@@ -68,96 +72,94 @@ export function EventBookingForm({ slug, restaurantName }: Props) {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-md px-4 py-12 text-center sm:py-20">
-        <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
-        <h2 className="mt-4 font-display text-xl font-semibold">Request sent!</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Thanks for thinking of {restaurantName} for your event. Our events
-          team will call you on <strong>{contactPhone}</strong> within 24 hours
-          to discuss availability, setup, and pricing.
-        </p>
-        <Button className="mt-6" onClick={() => router.push(`/${slug}`)}>
-          Back to home
-        </Button>
-      </div>
+      <Container size="narrow" className="py-12 sm:py-20">
+        <EmptyState
+          icon={<CheckCircle2 className="h-7 w-7" />}
+          title="Request sent!"
+          description={
+            <>
+              Thanks for thinking of {restaurantName} for your event. Our events
+              team will call you on <strong>{contactPhone}</strong> within 24 hours
+              to discuss availability, setup, and pricing.
+            </>
+          }
+          action={<Button onClick={() => router.push(`/${slug}`)}>Back to home</Button>}
+        />
+      </Container>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
-      <header className="mb-5">
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">
-          Event &amp; meeting space
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Host your next event at {restaurantName}. Tell us about your event and
-          we&apos;ll be in touch within 24 hours to discuss availability and
-          setup.
-        </p>
-      </header>
+    <form onSubmit={handleSubmit}>
+      <Container size="narrow" className="py-6 sm:py-10">
+        <PageHeader
+          title="Event & meeting space"
+          subtitle={`Host your next event at ${restaurantName}. Tell us about your event and we'll be in touch within 24 hours to discuss availability and setup.`}
+        />
 
-      <section className="mb-5 rounded-xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Your contact details
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="cname">Name</Label>
-            <Input id="cname" value={contactName} onChange={(e) => setContactName(e.target.value)} required className="mt-1" />
+        <PremiumCard className="mb-5 p-5">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Your contact details
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="cname">Name</Label>
+              <Input id="cname" value={contactName} onChange={(e) => setContactName(e.target.value)} required className="mt-1.5" autoComplete="name" />
+            </div>
+            <div>
+              <Label htmlFor="cphone">Phone</Label>
+              <Input id="cphone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="0712 345 678" required className="mt-1.5" autoComplete="tel" />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="cphone">Phone</Label>
-            <Input id="cphone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="0712 345 678" required className="mt-1" />
-          </div>
-        </div>
-      </section>
+        </PremiumCard>
 
-      <section className="mb-5 rounded-xl border border-border bg-card p-4 sm:p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Event details
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <Label htmlFor="edate">Event date</Label>
-            <Input id="edate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required className="mt-1" />
+        <PremiumCard className="mb-5 p-5">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Event details
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <Label htmlFor="edate">Event date</Label>
+              <Input id="edate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required className="mt-1.5" />
+            </div>
+            <div>
+              <Label htmlFor="dur">Duration (hours)</Label>
+              <Input id="dur" type="number" min={0.5} max={24} step={0.5} value={durationHours} onChange={(e) => setDurationHours(e.target.value)} required className="mt-1.5" />
+            </div>
+            <div>
+              <Label htmlFor="gcount">Guest count</Label>
+              <Input id="gcount" type="number" min={1} value={guestCount} onChange={(e) => setGuestCount(e.target.value)} required className="mt-1.5" />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="dur">Duration (hours)</Label>
-            <Input id="dur" type="number" min={0.5} max={24} step={0.5} value={durationHours} onChange={(e) => setDurationHours(e.target.value)} required className="mt-1" />
+          <div className="mt-4">
+            <Label htmlFor="setup">Setup needs (optional)</Label>
+            <Textarea
+              id="setup"
+              value={setupNeeds}
+              onChange={(e) => setSetupNeeds(e.target.value)}
+              placeholder="e.g. projector + screen, 10 round tables of 8, PA system, separate buffet area"
+              className="mt-1.5"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Tell us anything we need to know about how you want the space set up.
+            </p>
           </div>
-          <div>
-            <Label htmlFor="gcount">Guest count</Label>
-            <Input id="gcount" type="number" min={1} value={guestCount} onChange={(e) => setGuestCount(e.target.value)} required className="mt-1" />
-          </div>
-        </div>
-        <div className="mt-3">
-          <Label htmlFor="setup">Setup needs (optional)</Label>
-          <Textarea
-            id="setup"
-            value={setupNeeds}
-            onChange={(e) => setSetupNeeds(e.target.value)}
-            placeholder="e.g. projector + screen, 10 round tables of 8, PA system, separate buffet area"
-            className="mt-1"
-          />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Tell us anything we need to know about how you want the space set up.
-          </p>
-        </div>
-      </section>
+        </PremiumCard>
 
-      <Button type="submit" size="lg" className="w-full gap-2" disabled={pending}>
-        {pending ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Sending…
-          </>
-        ) : (
-          <>
-            <CalendarDays className="h-4 w-4" />
-            Submit booking request
-          </>
-        )}
-      </Button>
+        <Button type="submit" size="lg" className="w-full gap-2" disabled={pending}>
+          {pending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Sending…
+            </>
+          ) : (
+            <>
+              <CalendarDays className="h-4 w-4" />
+              Submit booking request
+            </>
+          )}
+        </Button>
+      </Container>
     </form>
   );
 }

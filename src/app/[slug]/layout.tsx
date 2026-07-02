@@ -51,6 +51,7 @@ export default async function TenantLayout({
       <SiteFooter
         slug={slug}
         restaurantName={restaurant.name}
+        logoUrl={restaurant.logoUrl}
         phone={restaurant.contactPhone}
         email={restaurant.contactEmail}
         address={restaurant.address}

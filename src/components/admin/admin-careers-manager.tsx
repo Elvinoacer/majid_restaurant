@@ -133,7 +133,7 @@ export function AdminCareersManager({ slug, restaurantName, initialPostings }: P
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-red-600 hover:text-red-700"
+                    className="text-danger hover:text-danger"
                     onClick={() => {
                       if (!confirm("Delete this posting? All applications will also be deleted.")) return;
                       startTransition(async () => {

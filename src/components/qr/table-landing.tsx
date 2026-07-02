@@ -6,6 +6,9 @@ import { Utensils, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart/store";
 import { toast } from "sonner";
+import { Container } from "@/components/premium/container";
+import { PremiumCard } from "@/components/premium/card";
+import { CheckCircle2 } from "lucide-react";
 
 type Props = {
   slug: string;
@@ -59,23 +62,24 @@ export function TableLanding({ slug, tableId, tableLabel, restaurantName }: Prop
   };
 
   return (
-    <div className="mx-auto max-w-md px-4 py-8 sm:py-12">
-      <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+    <Container size="narrow" className="py-8 sm:py-12">
+      <PremiumCard className="p-8 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <QrCode className="h-8 w-8" />
         </div>
-        <h1 className="mt-4 font-display text-2xl font-bold">{restaurantName}</h1>
+        <h1 className="mt-5 font-display text-2xl font-bold tracking-tight text-foreground">{restaurantName}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           You scanned the QR code for
         </p>
-        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 font-display text-base font-bold text-primary">
+        <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-4 py-1.5 font-display text-base font-bold text-primary">
           <Utensils className="h-4 w-4" />
           {tableLabel}
         </p>
 
         {saved && (
-          <p className="mt-4 text-xs text-green-700">
-            ✓ Table confirmed. You can browse the menu and place a dine-in order.
+          <p className="mt-5 inline-flex items-center justify-center gap-1.5 text-xs font-medium text-success">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Table confirmed. Browse the menu and place a dine-in order.
           </p>
         )}
 
@@ -90,16 +94,16 @@ export function TableLanding({ slug, tableId, tableLabel, restaurantName }: Prop
 
         <button
           onClick={handleClearTable}
-          className="mt-4 text-xs text-muted-foreground underline hover:text-foreground"
+          className="mt-4 text-xs font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
         >
           Wrong table? Clear binding.
         </button>
-      </div>
+      </PremiumCard>
 
       <p className="mt-4 text-center text-xs text-muted-foreground">
         By placing an order, you agree to be contacted by {restaurantName} about
         your order. Cash or M-Pesa accepted.
       </p>
-    </div>
+    </Container>
   );
 }

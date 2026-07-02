@@ -10,6 +10,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { createReservation } from "@/lib/reservations/actions";
+import { Container } from "@/components/premium/container";
+import { PageHeader } from "@/components/premium/page-header";
+import { PremiumCard } from "@/components/premium/card";
+import { EmptyState } from "@/components/premium/empty-state";
 
 export function ReservationForm({ slug }: { slug: string }) {
   const router = useRouter();
@@ -61,17 +65,19 @@ export function ReservationForm({ slug }: { slug: string }) {
 
   if (submitted) {
     return (
-      <div className="mx-auto max-w-md px-4 py-12 text-center sm:py-20">
-        <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
-        <h2 className="mt-4 font-display text-xl font-semibold">Reservation requested!</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          We&apos;ll call or SMS you on <strong>{guestPhone}</strong> to confirm.
-          If you don&apos;t hear from us within an hour, please call the restaurant directly.
-        </p>
-        <Button className="mt-6" onClick={() => router.push(`/${slug}`)}>
-          Back to home
-        </Button>
-      </div>
+      <Container size="narrow" className="py-12 sm:py-20">
+        <EmptyState
+          icon={<CheckCircle2 className="h-7 w-7" />}
+          title="Reservation requested!"
+          description={
+            <>
+              We&apos;ll call or SMS you on <strong>{guestPhone}</strong> to confirm.
+              If you don&apos;t hear from us within an hour, please call the restaurant directly.
+            </>
+          }
+          action={<Button onClick={() => router.push(`/${slug}`)}>Back to home</Button>}
+        />
+      </Container>
     );
   }
 
@@ -84,16 +90,15 @@ export function ReservationForm({ slug }: { slug: string }) {
   })();
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
-      <header className="mb-5">
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">Reserve a table</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tell us when you&apos;re coming — we&apos;ll have your table ready.
-        </p>
-      </header>
+    <form onSubmit={handleSubmit}>
+      <Container size="narrow" className="py-6 sm:py-10">
+        <PageHeader
+          title="Reserve a table"
+          subtitle="Tell us when you're coming — we'll have your table ready."
+        />
 
-      <section className="mb-5 rounded-xl border border-border bg-card p-4 sm:p-5">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <PremiumCard className="mb-5 p-4 sm:p-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="name">Name</Label>
             <Input
@@ -101,7 +106,8 @@ export function ReservationForm({ slug }: { slug: string }) {
               value={guestName}
               onChange={(e) => setGuestName(e.target.value)}
               required
-              className="mt-1"
+              className="mt-1.5"
+              autoComplete="name"
             />
           </div>
           <div>
@@ -112,11 +118,12 @@ export function ReservationForm({ slug }: { slug: string }) {
               onChange={(e) => setGuestPhone(e.target.value)}
               placeholder="0712 345 678"
               required
-              className="mt-1"
+              className="mt-1.5"
+              autoComplete="tel"
             />
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="party">Party size</Label>
             <Input
@@ -127,7 +134,7 @@ export function ReservationForm({ slug }: { slug: string }) {
               value={partySize}
               onChange={(e) => setPartySize(e.target.value)}
               required
-              className="mt-1"
+              className="mt-1.5"
             />
           </div>
           <div>
@@ -138,13 +145,13 @@ export function ReservationForm({ slug }: { slug: string }) {
               value={reservedFor || defaultTime}
               onChange={(e) => setReservedFor(e.target.value)}
               required
-              className="mt-1"
+              className="mt-1.5"
             />
           </div>
         </div>
-      </section>
+      </PremiumCard>
 
-      <section className="mb-5 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <PremiumCard className="mb-5 p-4 sm:p-5">
         <Label>Occasion (optional)</Label>
         <RadioGroup
           value={occasion}
@@ -155,10 +162,10 @@ export function ReservationForm({ slug }: { slug: string }) {
             <Label
               key={o}
               htmlFor={`oc-${o}`}
-              className="cursor-pointer rounded-full border border-border px-3 py-1 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+              className="cursor-pointer rounded-full border border-border px-3 py-1.5 text-sm capitalize transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5"
             >
               <RadioGroupItem id={`oc-${o}`} value={o} className="sr-only" />
-              {o.charAt(0).toUpperCase() + o.slice(1)}
+              {o}
             </Label>
           ))}
         </RadioGroup>
@@ -173,25 +180,25 @@ export function ReservationForm({ slug }: { slug: string }) {
             <Label
               key={s}
               htmlFor={`sp-${s}`}
-              className="cursor-pointer rounded-full border border-border px-3 py-1 text-sm capitalize has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+              className="cursor-pointer rounded-full border border-border px-3 py-1.5 text-sm capitalize transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5"
             >
               <RadioGroupItem id={`sp-${s}`} value={s} className="sr-only" />
               {s}
             </Label>
           ))}
         </RadioGroup>
-      </section>
+      </PremiumCard>
 
-      <section className="mb-5 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <PremiumCard className="mb-5 p-4 sm:p-5">
         <Label htmlFor="notes">Notes (optional)</Label>
         <Textarea
           id="notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. high chair needed, near the window, surprise birthday"
-          className="mt-1"
+          className="mt-1.5"
         />
-      </section>
+      </PremiumCard>
 
       <Button type="submit" size="lg" className="w-full gap-2" disabled={pending}>
         {pending ? (
@@ -206,6 +213,7 @@ export function ReservationForm({ slug }: { slug: string }) {
           </>
         )}
       </Button>
+      </Container>
     </form>
   );
 }

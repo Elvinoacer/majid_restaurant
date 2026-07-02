@@ -44,12 +44,12 @@ const NEXT_ACTIONS: Partial<Record<InquiryStatus, InquiryStatus[]>> = {
 };
 
 const STATUS_COLOR: Record<InquiryStatus, string> = {
-  NEW: "bg-yellow-500/15 text-yellow-700",
-  CONTACTED: "bg-blue-500/15 text-blue-700",
-  QUOTED: "bg-purple-500/15 text-purple-700",
-  CONFIRMED: "bg-green-500/15 text-green-700",
+  NEW: "bg-warning-muted text-warning-foreground",
+  CONTACTED: "bg-info-muted text-info",
+  QUOTED: "bg-info-muted text-info",
+  CONFIRMED: "bg-success-muted text-success",
   COMPLETED: "bg-muted text-foreground",
-  DECLINED: "bg-red-500/15 text-red-700",
+  DECLINED: "bg-danger-muted text-danger",
 };
 
 export function AdminEventBookings({

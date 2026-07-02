@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { updateReservationStatus } from "@/lib/reservations/actions";
 import type { ReservationStatus } from "@/generated/prisma/client";
+import { PageHeader } from "@/components/premium/page-header";
+import { StatusPill, type StatusTone } from "@/components/premium/status-pill";
+import { EmptyState } from "@/components/premium/empty-state";
+import { PremiumCard } from "@/components/premium/card";
 
 type Reservation = {
   id: string;
@@ -22,13 +26,22 @@ type Reservation = {
   createdAt: string;
 };
 
-const STATUS_COLOR: Record<ReservationStatus, string> = {
-  PENDING: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30",
-  CONFIRMED: "bg-green-500/15 text-green-700 border-green-500/30",
-  SEATED: "bg-blue-500/15 text-blue-700 border-blue-500/30",
-  COMPLETED: "bg-muted text-foreground border-border",
-  CANCELLED: "bg-red-500/15 text-red-700 border-red-500/30 line-through",
-  NO_SHOW: "bg-orange-500/15 text-orange-700 border-orange-500/30",
+const STATUS_TONE: Record<ReservationStatus, StatusTone> = {
+  PENDING: "warning",
+  CONFIRMED: "success",
+  SEATED: "info",
+  COMPLETED: "neutral",
+  CANCELLED: "danger",
+  NO_SHOW: "warning",
+};
+
+const STATUS_BORDER: Record<ReservationStatus, string> = {
+  PENDING: "border-warning/30",
+  CONFIRMED: "border-success/30",
+  SEATED: "border-info/30",
+  COMPLETED: "border-border",
+  CANCELLED: "border-danger/30",
+  NO_SHOW: "border-warning/30",
 };
 
 const NEXT_ACTIONS: Partial<Record<ReservationStatus, ReservationStatus[]>> = {
@@ -102,16 +115,13 @@ export function AdminReservationsList({
 
   return (
     <div>
-      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold sm:text-3xl">Reservations</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Confirm, seat, or mark no-show as guests arrive. Calendar shows the next 7 days by default.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title="Reservations"
+        subtitle="Confirm, seat, or mark no-show as guests arrive. Calendar shows the next 7 days by default."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
           {/* View switcher */}
-          <div className="inline-flex rounded-md border border-border bg-card p-0.5" role="tablist" aria-label="View mode">
+          <div className="inline-flex rounded-lg border border-border bg-card p-0.5" role="tablist" aria-label="View mode">
             {(["week", "day", "list"] as ViewMode[]).map((v) => (
               <button
                 key={v}
@@ -119,7 +129,7 @@ export function AdminReservationsList({
                 aria-selected={view === v}
                 onClick={() => setView(v)}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium capitalize transition-colors",
+                  "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium capitalize transition-colors",
                   view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -131,7 +141,7 @@ export function AdminReservationsList({
 
           {/* Cursor nav (week / day only) */}
           {view !== "list" && (
-            <div className="inline-flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
+            <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
               <Button
                 variant="ghost"
                 size="sm"
@@ -161,12 +171,15 @@ export function AdminReservationsList({
             </div>
           )}
         </div>
-      </header>
+        }
+      />
 
       {reservations.length === 0 ? (
-        <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-          No upcoming reservations in the next 7 days.
-        </p>
+        <EmptyState
+          icon={<CalendarIcon className="h-7 w-7" />}
+          title="No upcoming reservations"
+          description="Reservations for the next 7 days will appear here as they're requested."
+        />
       ) : view === "list" ? (
         <ListView reservations={visible} onStatusChange={handleStatusChange} pending={pending} />
       ) : view === "day" ? (
@@ -199,8 +212,8 @@ function ReservationChip({
   return (
     <div
       className={cn(
-        "rounded-md border bg-card p-2 text-xs shadow-sm transition-shadow hover:shadow-md",
-        STATUS_COLOR[r.status],
+        "rounded-lg border bg-card p-2 text-xs elevation-1 transition-all hover:elevation-2",
+        STATUS_BORDER[r.status],
       )}
     >
       <button
@@ -413,18 +426,13 @@ function ListView({
           </h2>
           <ul className="space-y-2">
             {list.map((r) => (
-              <li key={r.id} className="rounded-xl border border-border bg-card p-3 sm:p-4">
+              <li key={r.id} className="rounded-2xl border border-border bg-card p-4 elevation-1 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold",
-                          STATUS_COLOR[r.status],
-                        )}
-                      >
+                      <StatusPill tone={STATUS_TONE[r.status]}>
                         {r.status.toLowerCase().replace("_", " ")}
-                      </span>
+                      </StatusPill>
                       <span className="font-medium">{fmtTime(r.reservedFor)}</span>
                       <span>·</span>
                       <span>party of {r.partySize}</span>
