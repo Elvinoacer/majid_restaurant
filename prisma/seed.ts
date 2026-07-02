@@ -131,6 +131,8 @@ async function main() {
   });
 
   // ── Categories ───────────────────────────────────────────
+  await db.order.deleteMany({ where: { restaurantId: restaurant.id } });
+  await db.menuItem.deleteMany({ where: { restaurantId: restaurant.id } });
   await db.menuCategory.deleteMany({ where: { restaurantId: restaurant.id } });
   const categories = await db.menuCategory.createMany({
     data: [
@@ -406,7 +408,6 @@ async function main() {
     },
   ];
 
-  await db.menuItem.deleteMany({ where: { restaurantId: restaurant.id } });
   for (const item of items) {
     await db.menuItem.create({
       data: {
