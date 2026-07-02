@@ -248,7 +248,7 @@ export function CheckoutView({ slug }: { slug: string }) {
             Leave blank for "as soon as possible".
           </p>
         </div>
-      </section>
+      </PremiumCard>
 
       {/* Contact */}
       <PremiumCard className="mb-6 p-4 sm:p-5">
@@ -289,7 +289,7 @@ export function CheckoutView({ slug }: { slug: string }) {
             className="mt-1"
           />
         </div>
-      </section>
+      </PremiumCard>
 
       {/* Payment */}
       <PremiumCard className="mb-6 p-4 sm:p-5">
@@ -336,7 +336,7 @@ export function CheckoutView({ slug }: { slug: string }) {
             </p>
           </div>
         )}
-      </section>
+      </PremiumCard>
 
       {/* Summary */}
       <PremiumCard className="mb-6 bg-muted/30 p-4 sm:p-5">
