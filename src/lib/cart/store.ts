@@ -83,7 +83,7 @@ export const useCart = create<CartState>()(
           lines: state.lines.filter((l) => l.menuItemId !== menuItemId),
         })),
 
-      clear: () => set({ lines: [] }),
+      clear: () => set({ lines: [], tableId: null, tableLabel: null }),
 
       setRestaurantSlug: (slug) =>
         set((state) => {
@@ -107,7 +107,27 @@ export const useCart = create<CartState>()(
     }),
     {
       name: "majidos-cart",
-      version: 2,
+      version: 3,
+      // Bump version + migrate whenever CartLine changes shape. v3 keeps
+      // the existing structure but the `clear()` semantics changed to
+      // also reset `tableId`/`tableLabel` — old persisted carts may carry
+      // a stale tableId from a previous dine-in session, so we drop them
+      // on hydrate.
+      migrate: (persisted: unknown) => {
+        if (!persisted || typeof persisted !== "object") {
+          return { lines: [], restaurantSlug: null, tableId: null, tableLabel: null };
+        }
+        const p = persisted as Partial<CartState> & { lines?: CartLine[] };
+        return {
+          lines: Array.isArray(p.lines) ? p.lines : [],
+          restaurantSlug: p.restaurantSlug ?? null,
+          // Always drop table assignment on hydrate — a stale tableId
+          // from a previous session would silently make the next order
+          // a dine-in order for that table.
+          tableId: null,
+          tableLabel: null,
+        };
+      },
     },
   ),
 );

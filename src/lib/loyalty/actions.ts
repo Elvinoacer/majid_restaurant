@@ -345,6 +345,56 @@ export async function getCustomerLoyaltyAdmin(
   };
 }
 
+/**
+ * Staff: returns the full audit ledger for a customer. Used by the admin
+ * loyalty manager's "View ledger" panel (PRD §5.11 — "audit ledger").
+ *
+ * Returns the most recent 50 entries — enough to see accruals, redemptions,
+ * adjustments, and expiries without paginating. Each entry includes the
+ * staff user's name (if the entry was staff-initiated) so the audit trail
+ * answers "who did this and when."
+ */
+export type LoyaltyLedgerEntryAdmin = LoyaltyLedgerEntry & {
+  staffUserName: string | null;
+  orderId: string | null;
+  loyaltyRuleId: string | null;
+};
+
+export async function getCustomerLedgerAdmin(
+  customerId: string,
+): Promise<LoyaltyLedgerEntryAdmin[]> {
+  await requireStaff(["OWNER", "MANAGER", "FRONT_OF_HOUSE"]);
+  const { db: tenant } = await getContextRestaurant();
+
+  // Verify the customer belongs to this tenant before reading their ledger.
+  const customer = await tenant.customer.findUnique({
+    where: { id: customerId },
+    select: { id: true },
+  });
+  if (!customer) return [];
+
+  const entries = await tenant.loyaltyPointLedger.findMany({
+    where: { customerId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: {
+      staffUser: { select: { name: true } },
+    },
+  });
+
+  return entries.map((e) => ({
+    id: e.id,
+    entryType: e.entryType,
+    points: e.points,
+    balanceAfter: e.balanceAfter,
+    description: e.description,
+    createdAt: e.createdAt.toISOString(),
+    staffUserName: e.staffUser?.name ?? null,
+    orderId: e.orderId,
+    loyaltyRuleId: e.loyaltyRuleId,
+  }));
+}
+
 const RedeemSchema = z.object({
   customerId: z.string().min(1),
   ruleId: z.string().optional().nullable(),

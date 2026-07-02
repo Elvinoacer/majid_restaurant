@@ -135,6 +135,8 @@ model StaffUser {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  loyaltyLedger LoyaltyPointLedger[] // entries this staff member initiated
+
   @@unique([restaurantId, email])
   @@index([restaurantId])
 }
@@ -493,6 +495,8 @@ model LoyaltyRule {
   rewardDescription String
   isActive          Boolean  @default(true)
 
+  ledgerEntries     LoyaltyPointLedger[] // redemptions that used this rule
+
   @@index([restaurantId])
 }
 
@@ -522,9 +526,11 @@ model LoyaltyPointLedger {
   // Optional relations — set when the entry is tied to a specific order or rule.
   orderId       String?
   loyaltyRuleId String?
+  loyaltyRule   LoyaltyRule?          @relation(fields: [loyaltyRuleId], references: [id], onDelete: SetNull)
 
   description   String                // human-readable, shown to customer & staff
   staffUserId   String?               // set on ADJUSTMENT / staff-initiated REDEMPTION
+  staffUser     StaffUser?            @relation(fields: [staffUserId], references: [id], onDelete: SetNull)
   createdAt     DateTime              @default(now())
 
   @@index([restaurantId, customerId])

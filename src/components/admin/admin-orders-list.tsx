@@ -35,8 +35,8 @@ const STATUS_FLOW: Record<OrderStatus, OrderStatus[]> = {
   PENDING_PAYMENT: ["CONFIRMED", "CANCELLED"],
   CONFIRMED: ["PREPARING", "CANCELLED"],
   PREPARING: ["READY", "CANCELLED"],
-  READY: ["OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED", "CANCELLED"],
-  OUT_FOR_DELIVERY: ["DELIVERED", "COMPLETED", "CANCELLED"],
+  READY: ["OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"],
+  OUT_FOR_DELIVERY: ["DELIVERED", "COMPLETED"],
   DELIVERED: ["COMPLETED"],
   COMPLETED: [],
   CANCELLED: [],
@@ -62,7 +62,8 @@ export function AdminOrdersList({
   initialOrders: Order[];
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | OrderStatus>("active");
 
   const filtered = initialOrders.filter((o) => {
@@ -72,14 +73,19 @@ export function AdminOrdersList({
   });
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
+    setPendingOrderId(orderId);
     startTransition(async () => {
-      const result = await updateOrderStatus({ orderId, status: newStatus });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
+      try {
+        const result = await updateOrderStatus({ orderId, status: newStatus });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`Order marked as ${newStatus.toLowerCase().replace("_", " ")}`);
+        router.refresh();
+      } finally {
+        setPendingOrderId(null);
       }
-      toast.success(`Order marked as ${newStatus.toLowerCase().replace("_", " ")}`);
-      router.refresh();
     });
   };
 
@@ -131,7 +137,8 @@ export function AdminOrdersList({
                   <div className="mt-2 text-sm">
                     <p>
                       <span className="text-muted-foreground">Customer:</span>{" "}
-                      <span className="font-medium">{order.guestName}</span> · {order.guestPhone}
+                      <span className="font-medium">{order.guestName ?? "Guest"}</span>
+                      {order.guestPhone ? <> · {order.guestPhone}</> : null}
                     </p>
                     <p>
                       <span className="text-muted-foreground">Fulfillment:</span>{" "}
@@ -179,10 +186,10 @@ export function AdminOrdersList({
                       key={s}
                       size="sm"
                       variant="outline"
-                      disabled={pending}
+                      disabled={pendingOrderId !== null}
                       onClick={() => handleStatusChange(order.id, s)}
                     >
-                      {pending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {pendingOrderId === order.id && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                       {s.toLowerCase().replace("_", " ")}
                     </Button>
                   ))}

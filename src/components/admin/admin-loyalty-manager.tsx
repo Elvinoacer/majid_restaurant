@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2, Power, Search, Gift, Coins, TrendingUp } from "lucide-react";
+import { Loader2, Plus, Trash2, Power, Search, Gift, Coins, TrendingUp, History } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +14,16 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   upsertLoyaltyRule,
@@ -27,7 +33,9 @@ import {
   redeemReward,
   adjustCustomerPoints,
   updateLoyaltyAccrualRatio,
+  getCustomerLedgerAdmin,
   type CustomerLoyaltyAdmin,
+  type LoyaltyLedgerEntryAdmin,
 } from "@/lib/loyalty/actions";
 import { formatKsh } from "@/lib/whatsapp/order";
 
@@ -46,6 +54,25 @@ type Props = {
   staffRole: "OWNER" | "MANAGER" | "FRONT_OF_HOUSE";
   spendPerPoint: number;
   initialRules: Rule[];
+};
+
+type LedgerEntry = {
+  id: string;
+  entryType: "ACCRUAL" | "REDEMPTION" | "ADJUSTMENT" | "EXPIRY";
+  points: number;
+  balanceAfter: number;
+  description: string;
+  createdAt: string;
+  staffUserName: string | null;
+  orderId: string | null;
+  loyaltyRuleId: string | null;
+};
+
+const ENTRY_TONE: Record<LedgerEntry["entryType"], string> = {
+  ACCRUAL: "bg-green-500/15 text-green-700",
+  REDEMPTION: "bg-orange-500/15 text-orange-700",
+  ADJUSTMENT: "bg-blue-500/15 text-blue-700",
+  EXPIRY: "bg-muted text-muted-foreground",
 };
 
 export function AdminLoyaltyManager({
@@ -341,8 +368,36 @@ function CustomerLoyaltyActions({
   const [redeemDesc, setRedeemDesc] = useState("");
   const [adjustDelta, setAdjustDelta] = useState("");
   const [adjustDesc, setAdjustDesc] = useState("");
+  const [showLedger, setShowLedger] = useState(false);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  // Track which customer the cached ledger belongs to so we can invalidate
+  // when the customer changes — avoids the setState-in-effect anti-pattern.
+  const [ledgerCustomerId, setLedgerCustomerId] = useState<string | null>(null);
 
   const selectedRule = rules.find((r) => r.id === selectedRuleId);
+
+  // If the selected customer has changed, drop any cached ledger so the
+  // next "View ledger" expand re-fetches for the new customer.
+  if (ledgerCustomerId !== customer.id && ledgerCustomerId !== null) {
+    setLedger([]);
+    setLedgerCustomerId(customer.id);
+    setShowLedger(false);
+  }
+
+  // Fetch the audit ledger when the panel is expanded (and we don't have a
+  // fresh cache for this customer).
+  const needsLedgerFetch =
+    showLedger && ledger.length === 0 && !ledgerLoading && ledgerCustomerId !== customer.id;
+  if (needsLedgerFetch) {
+    setLedgerCustomerId(customer.id);
+    setLedgerLoading(true);
+    startTransition(async () => {
+      const entries = await getCustomerLedgerAdmin(customer.id);
+      setLedger(entries as LedgerEntry[]);
+      setLedgerLoading(false);
+    });
+  }
 
   return (
     <div className="mt-3 rounded-xl border-2 border-primary/20 bg-primary/5 p-4">
@@ -361,24 +416,28 @@ function CustomerLoyaltyActions({
           <div className="space-y-2">
             <div>
               <Label className="text-xs">Pick a reward (or set custom points)</Label>
-              <select
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                value={selectedRuleId ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value || null;
-                  setSelectedRuleId(v);
-                  const rule = rules.find((r) => r.id === v);
+              <Select
+                value={selectedRuleId ?? "__custom__"}
+                onValueChange={(v) => {
+                  const id = v === "__custom__" ? null : v;
+                  setSelectedRuleId(id);
+                  const rule = rules.find((r) => r.id === id);
                   if (rule?.pointsRequired) setRedeemPoints(String(rule.pointsRequired));
                   if (rule) setRedeemDesc(`${rule.description} → ${rule.rewardDescription}`);
                 }}
               >
-                <option value="">— Custom —</option>
-                {rules.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.description} ({r.pointsRequired ?? "manual"} pts) → {r.rewardDescription}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="mt-1 w-full">
+                  <SelectValue placeholder="— Custom —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__custom__">— Custom —</SelectItem>
+                  {rules.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.description} ({r.pointsRequired ?? "manual"} pts) → {r.rewardDescription}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div>
@@ -474,6 +533,7 @@ function CustomerLoyaltyActions({
                 onUpdated({ ...customer, loyaltyPoints: res.data.balanceAfter });
                 setAdjustDelta("");
                 setAdjustDesc("");
+                setLedgerCustomerId(null); // invalidate cache → force re-fetch on next expand
               });
             }}
           >
@@ -482,6 +542,66 @@ function CustomerLoyaltyActions({
           </Button>
         </div>
       )}
+
+      {/* Audit ledger (PRD §5.11) */}
+      <div className="mt-4 border-t border-border pt-3">
+        <button
+          type="button"
+          onClick={() => setShowLedger((v) => !v)}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          aria-expanded={showLedger}
+        >
+          <History className="h-3.5 w-3.5" />
+          {showLedger ? "Hide" : "View"} audit ledger
+        </button>
+        {showLedger && (
+          <div className="mt-2">
+            {ledgerLoading ? (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading ledger…
+              </p>
+            ) : ledger.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No ledger entries yet.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-md border border-border">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-2 py-1.5">When</th>
+                      <th className="px-2 py-1.5">Type</th>
+                      <th className="px-2 py-1.5 text-right">Δ</th>
+                      <th className="px-2 py-1.5 text-right">Balance</th>
+                      <th className="px-2 py-1.5">Description</th>
+                      <th className="px-2 py-1.5">By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {ledger.map((e) => (
+                      <tr key={e.id}>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">
+                          {new Date(e.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short" })}{" "}
+                          {new Date(e.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <span className={cn("inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase", ENTRY_TONE[e.entryType])}>
+                            {e.entryType.toLowerCase()}
+                          </span>
+                        </td>
+                        <td className={cn("px-2 py-1.5 text-right font-mono", e.points >= 0 ? "text-green-700" : "text-orange-700")}>
+                          {e.points >= 0 ? "+" : ""}{e.points}
+                        </td>
+                        <td className="px-2 py-1.5 text-right font-mono">{e.balanceAfter}</td>
+                        <td className="px-2 py-1.5">{e.description}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground">{e.staffUserName ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -503,11 +623,6 @@ function RuleDialog({
   const [spendThreshold, setSpendThreshold] = useState("");
   const [rewardDescription, setRewardDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
-
-  // Reset fields whenever the dialog opens (with a fresh rule or null).
-  useState(() => {});
-  // useEffect-equivalent: since the dialog is conditionally rendered, the
-  // initial state above runs once; we sync via key prop trick — see below.
 
   const handleOpen = (open: boolean) => {
     if (open) {

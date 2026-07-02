@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { DEFAULT_TENANT_SLUG } from "@/proxy";
 
 export default function GlobalNotFound() {
   return (
@@ -12,7 +13,7 @@ export default function GlobalNotFound() {
         The restaurant you&apos;re looking for doesn&apos;t exist on this platform.
       </p>
       <Button asChild className="mt-6">
-        <Link href="/majid-restaurant">Back to Majid Restaurant</Link>
+        <Link href={`/${DEFAULT_TENANT_SLUG}`}>Back to Majid Restaurant</Link>
       </Button>
     </div>
   );

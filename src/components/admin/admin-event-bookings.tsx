@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { updateEventBookingStatus } from "@/lib/events/actions";
 import type { InquiryStatus } from "@/generated/prisma/client";
@@ -28,9 +29,14 @@ type Props = {
   initialBookings: Booking[];
 };
 
-const FLOW: Record<InquiryStatus, InquiryStatus[]> = {
-  NEW: ["CONTACTED", "QUOTED", "CONFIRMED", "DECLINED"],
-  CONTACTED: ["QUOTED", "CONFIRMED", "DECLINED"],
+// Strict linear workflow per PRD §5.9:
+//   NEW → CONTACTED → QUOTED → CONFIRMED → COMPLETED
+//   (DECLINED is available from any pre-COMPLETED state — it's the only "skip" allowed.)
+// This mirrors the catering component's behaviour and prevents staff from
+// skipping steps (which the PRD's status flow diagram does not allow).
+const NEXT_ACTIONS: Partial<Record<InquiryStatus, InquiryStatus[]>> = {
+  NEW: ["CONTACTED", "DECLINED"],
+  CONTACTED: ["QUOTED", "DECLINED"],
   QUOTED: ["CONFIRMED", "DECLINED"],
   CONFIRMED: ["COMPLETED", "DECLINED"],
   COMPLETED: [],
@@ -88,20 +94,21 @@ export function AdminEventBookings({
     <div>
       <header className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="font-display text-2xl font-bold sm:text-3xl">Event bookings</h1>
-        <select
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as typeof filter)}
-        >
-          <option value="active">Active</option>
-          <option value="all">All</option>
-          <option value="NEW">New</option>
-          <option value="CONTACTED">Contacted</option>
-          <option value="QUOTED">Quoted</option>
-          <option value="CONFIRMED">Confirmed</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="DECLINED">Declined</option>
-        </select>
+        <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="NEW">New</SelectItem>
+            <SelectItem value="CONTACTED">Contacted</SelectItem>
+            <SelectItem value="QUOTED">Quoted</SelectItem>
+            <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+            <SelectItem value="COMPLETED">Completed</SelectItem>
+            <SelectItem value="DECLINED">Declined</SelectItem>
+          </SelectContent>
+        </Select>
       </header>
 
       {filtered.length === 0 ? (
@@ -142,10 +149,10 @@ export function AdminEventBookings({
                 </div>
               </div>
 
-              {FLOW[b.status].length > 0 && (
+              {NEXT_ACTIONS[b.status]?.length ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
                   <span className="text-xs text-muted-foreground">Move to:</span>
-                  {FLOW[b.status].map((s) => (
+                  {NEXT_ACTIONS[b.status]!.map((s) => (
                     <Button
                       key={s}
                       size="sm"
@@ -157,7 +164,7 @@ export function AdminEventBookings({
                     </Button>
                   ))}
                 </div>
-              )}
+              ) : null}
             </li>
           ))}
         </ul>

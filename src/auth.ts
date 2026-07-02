@@ -24,6 +24,7 @@ import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
+import { headers } from "next/headers";
 import { db as prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -100,11 +101,22 @@ export const authConfig: NextAuthConfig = {
 
       // First sign-in via Google OAuth: we need to upsert a Customer row in
       // the current tenant. The tenant slug is round-tripped through the
-      // `slug` cookie set on the sign-in page (see SignInView).
+      // `majidos_signup_slug` cookie set on the sign-in page (see SignInView),
+      // but we defensively re-validate it against the request's
+      // `x-restaurant-slug` header (set by src/proxy.ts) — a malicious user
+      // could otherwise set the cookie to an arbitrary tenant and create a
+      // Customer row in a restaurant they didn't intend to sign up for.
       if (account?.provider === "google" && profile?.email && !token.customerId) {
         const { cookies } = await import("next/headers");
         const cookieStore = await cookies();
-        const slug = cookieStore.get("majidos_signup_slug")?.value;
+        const cookieSlug = cookieStore.get("majidos_signup_slug")?.value;
+        const headerSlug = (await headers()).get("x-restaurant-slug");
+        // If both are present they must agree. If only one is present, use it.
+        // If neither is present, we can't determine the tenant — bail.
+        const slug =
+          cookieSlug && headerSlug && cookieSlug !== headerSlug
+            ? headerSlug // header is authoritative — set by middleware, not client-settable
+            : (headerSlug ?? cookieSlug);
         if (slug) {
           const restaurant = await prisma.restaurant.findUnique({
             where: { slug },
@@ -160,9 +172,10 @@ export const { auth, handlers, signIn, signOut } = NextAuth(authConfig);
  * current tenant, or null if not signed in / signed in to a different tenant.
  *
  * Multi-tenant safety: even if a customer is logged in via cookie, we re-check
- * that their `restaurantId` matches the current request's tenant before
- * returning them. This prevents a customer of tenant A from acting under
- * tenant B's context if they happen to visit the other tenant's URL.
+ * that their `restaurantId` matches the current request's tenant (resolved
+ * from the `x-restaurant-slug` header set by `src/proxy.ts`) before returning
+ * them. This prevents a customer of tenant A from acting under tenant B's
+ * context if they happen to visit the other tenant's URL.
  */
 export async function getCustomerForCurrentTenant(): Promise<{
   id: string;
@@ -172,8 +185,23 @@ export async function getCustomerForCurrentTenant(): Promise<{
 } | null> {
   const session = await auth();
   if (!session?.user) return null;
-  const user = session.user as any;
-  if (!user.restaurantId) return null;
+  const user = session.user as { id?: string; email?: string; name?: string | null; restaurantId?: string };
+  if (!user.restaurantId || !user.id) return null;
+
+  // Defensive re-check: the JWT might have been issued for tenant A while the
+  // user is now hitting a URL under tenant B. We resolve the current tenant
+  // from the request header and reject the mismatch.
+  const headerSlug = (await headers()).get("x-restaurant-slug");
+  if (headerSlug) {
+    const currentRestaurant = await prisma.restaurant.findUnique({
+      where: { slug: headerSlug },
+      select: { id: true },
+    });
+    if (!currentRestaurant || currentRestaurant.id !== user.restaurantId) {
+      return null;
+    }
+  }
+
   return {
     id: user.id,
     email: user.email!,

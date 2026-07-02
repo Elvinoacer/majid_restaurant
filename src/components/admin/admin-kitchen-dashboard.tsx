@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useTransition, useRef } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle,
-  ChefHat,
   CheckCircle2,
   Clock,
   Flame,
@@ -21,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { updateOrderStatus } from "@/lib/orders/actions";
-import type { FulfillmentType, OrderStatus } from "@/generated/prisma/client";
+import type { FulfillmentType, OrderStatus, StaffRole } from "@/generated/prisma/client";
 
 type KitchenOrder = {
   id: string;
@@ -47,7 +45,7 @@ type Props = {
   slug: string;
   restaurantId: string;
   restaurantName: string;
-  staffRole: "OWNER" | "MANAGER" | "KITCHEN" | "FRONT_OF_HOUSE";
+  staffRole: StaffRole;
   initialOrders: KitchenOrder[];
   socketUrl: string;
 };
@@ -108,22 +106,27 @@ export function AdminKitchenDashboard({
   }, []);
 
   // Socket.IO live updates — best-effort. Falls back to polling.
+  // Use a typed Socket reference (no `any`) and allow both websocket and
+  // polling transports so the connection degrades gracefully on networks
+  // that block websockets (corporate Wi-Fi, some mobile carriers).
   useEffect(() => {
     if (!socketUrl) return;
-    let socket: any = null;
+    type Socket = { on: (e: string, cb: (...a: unknown[]) => void) => void; emit: (e: string, ...a: unknown[]) => void; close: () => void };
+    let socket: Socket | null = null;
     let cancelled = false;
 
     (async () => {
       try {
-        const { io } = await import("socket.io-client");
+        const mod = await import("socket.io-client");
+        const io = mod.io ?? mod.default;
         socket = io(socketUrl, {
-          transports: ["websocket"],
+          transports: ["websocket", "polling"],
           reconnection: true,
           reconnectionDelay: 1000,
-        });
+        }) as unknown as Socket;
         socket.on("connect", () => {
           if (cancelled) return;
-          socket.emit("join", `restaurant:${restaurantId}`);
+          socket?.emit("join", `restaurant:${restaurantId}`);
           setSocketConnected(true);
         });
         socket.on("disconnect", () => setSocketConnected(false));
@@ -156,19 +159,34 @@ export function AdminKitchenDashboard({
   }, [refresh]);
 
   const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
+    // Capture the previous status so we can roll back the optimistic update
+    // if the server rejects the change (race condition, permission revoked,
+    // etc.). Without this the card stays in the wrong column until the next
+    // 15s poll, and kitchen staff may double-act on it.
+    const previousOrder = orders.find((o) => o.id === orderId);
+    const previousStatus = previousOrder?.status;
+
+    // Optimistic local update so the card moves columns immediately.
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId ? { ...o, status: newStatus as KitchenOrder["status"] } : o,
+      ),
+    );
+
     startTransition(async () => {
       const result = await updateOrderStatus({ orderId, status: newStatus });
       if (!result.ok) {
         toast.error(result.error);
+        // Roll back the optimistic move.
+        if (previousStatus) {
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === orderId ? { ...o, status: previousStatus } : o,
+            ),
+          );
+        }
         return;
       }
-      // Optimistic local update so the card moves columns immediately — the
-      // next poll/socket event will confirm.
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId ? { ...o, status: newStatus as KitchenOrder["status"] } : o,
-        ),
-      );
       router.refresh();
     });
   };
@@ -476,7 +494,8 @@ function KitchenOrderCard({
 
       {/* Customer contact (small, for delivery drivers) */}
       <div className="mt-2 text-[11px] text-muted-foreground">
-        {order.guestName} · {order.guestPhone}
+        {order.guestName ?? "Guest"}
+        {order.guestPhone ? <> · {order.guestPhone}</> : null}
       </div>
 
       {/* Action button — large touch target */}
@@ -517,6 +536,3 @@ function formatRelative(d: Date, now: Date): string {
   if (minutes < 60) return `${minutes}m ago`;
   return d.toLocaleTimeString();
 }
-
-// Quiet linter about unused import in some build configs.
-export const _kitchenIcons = { AlertCircle, ChefHat };

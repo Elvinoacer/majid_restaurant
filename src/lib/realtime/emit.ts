@@ -67,12 +67,23 @@ async function emit(restaurantId: string, event: Event): Promise<void> {
   }
 
   const secret = process.env.SOCKET_SERVER_SECRET;
+  if (!secret) {
+    // Refuse to emit without authentication — otherwise anyone with the
+    // socket URL could broadcast fake order/reservation events to every
+    // kitchen dashboard on the platform. The caller treats this as a
+    // graceful no-op (order/reservation is already persisted).
+    console.warn(
+      "[realtime] NEXT_PUBLIC_SOCKET_URL is set but SOCKET_SERVER_SECRET is missing — refusing to emit unauthenticated event.",
+    );
+    return;
+  }
+
   try {
     await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(secret ? { "x-socket-secret": secret } : {}),
+        "x-socket-secret": secret,
       },
       body: JSON.stringify({
         room: `restaurant:${restaurantId}`,

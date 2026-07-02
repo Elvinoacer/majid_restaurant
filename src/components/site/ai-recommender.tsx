@@ -53,6 +53,7 @@ export function AiRecommender({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RecommendationResult["results"] | null>(null);
   const [lastQuery, setLastQuery] = useState<string>("");
+  const [rankedBy, setRankedBy] = useState<"tags" | "llm" | null>(null);
   const [pending, startTransition] = useTransition();
 
   const run = useCallback(
@@ -65,9 +66,11 @@ export function AiRecommender({
         if (!res.ok) {
           toast.error(res.error);
           setResults([]);
+          setRankedBy(null);
           return;
         }
         setResults(res.results);
+        setRankedBy(res.rankedBy);
         if (res.results.length === 0) {
           toast.message("No matches — try a different craving.");
         }
@@ -85,6 +88,7 @@ export function AiRecommender({
     setQuery("");
     setResults(null);
     setLastQuery("");
+    setRankedBy(null);
   };
 
   return (
@@ -175,6 +179,12 @@ export function AiRecommender({
                 <>
                   {results.length} suggestion{results.length === 1 ? "" : "s"} for{" "}
                   <span className="font-semibold text-foreground">&ldquo;{lastQuery}&rdquo;</span>
+                  {rankedBy === "llm" && (
+                    <span className="ml-2 inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary" title="Re-ranked by AI">
+                      <Sparkles className="h-2.5 w-2.5" />
+                      AI-ranked
+                    </span>
+                  )}
                 </>
               )}
             </p>

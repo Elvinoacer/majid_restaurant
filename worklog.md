@@ -266,3 +266,87 @@ Stage Summary:
 - .git directory preserved untouched (only files added/edited in src/, prisma/, eslint.config.mjs, README.md, worklog.md).
 - Deliverable: full project zipped to /home/z/my-project/download/majid_restaurant_clone-phase4.zip.
 
+
+---
+Task ID: QA-Hardening-Pass
+Agent: Super Z (main agent)
+Task: Final QA pass against PRD — fix critical infra issues, harden admin UX, fill feature gaps, improve UI polish. Deliver as zip with .git untouched.
+
+Work Log:
+- Read PRD (requirements.md, 1028 lines) end-to-end. Cross-referenced README claims against actual implementation across 60+ source files via two parallel Explore agents.
+- Critical infrastructure fixes:
+  * Created .env.example (was missing — README referenced it 4x). Covers DATABASE_URL, NextAuth, M-Pesa, Firebase, Cloudinary, Google Maps, Socket.IO, AI recommender.
+  * Fixed src/auth.ts getCustomerForCurrentTenant() — JSDoc claimed it re-checked tenant ID, but it didn't. Now resolves tenant from x-restaurant-slug header and rejects mismatches. Prevents cross-tenant customer contamination.
+  * Fixed src/auth.ts Google OAuth signup slug — was trusting client-set majidos_signup_slug cookie. Now defensively re-validates against the x-restaurant-slug header (set by middleware, not client-settable).
+  * Fixed src/lib/cart/store.ts clear() — was leaving tableId/tableLabel set, so the next order after checkout would silently be DINE_IN for the previous table. Now resets both. Also added migrate() for v3 with table-stripping on hydrate.
+  * Rewrote public/sw.js — removed process.env.NODE_ENV (unavailable in SW context), implemented self.registration.showNotification() in the push handler (was just console.log — Phase 2 FCM was effectively broken for background tabs). Added notificationclick handler that focuses/navigates the relevant tab.
+  * Added jose@^6.0.6 to package.json — was only a transitive dep of next-auth, fragile.
+  * Fixed src/lib/realtime/emit.ts — now requires SOCKET_SERVER_SECRET when NEXT_PUBLIC_SOCKET_URL is set (was optional, allowing unauthenticated event injection).
+  * Rewrote src/app/api/notifications/register-token/route.ts — customerId is now resolved from the NextAuth session via getCustomerForCurrentTenant(), never trusted from the request body. Prevents impersonation.
+- Admin shell hardening (src/components/admin/admin-shell.tsx + src/lib/auth/roles.ts):
+  * Synced NAV with ROLE_ALLOWED_ROUTES via a new single source of truth (ROLE_NAV + getNavForRole()). Previously staff saw nav items that silently redirected them — dead clicks for KITCHEN and FRONT_OF_HOUSE roles.
+  * Added mobile sign-out button — was previously only in the desktop sidebar (md:block), leaving kitchen-tablet users unable to sign out. Mobile top bar now has compact sign-out + slide-in Sheet nav with user info + sign-out at bottom.
+  * Added aria-current="page" on active nav links for screen readers.
+  * Added explicit role-gating on every nav item — KITCHEN now only sees Kitchen; FRONT_OF_HOUSE sees Orders/Reservations/Catering/Events/Tables/Menu/Loyalty/Reviews/Careers.
+- Reservation calendar (PRD §5.5 — "day/week view"):
+  * Rewrote src/components/admin/admin-reservations-list.tsx with 3 view modes: week grid (7 columns), day timeline (11:00–22:00 slots), and the legacy list view as fallback. Each reservation chip is expandable inline with full details + status action buttons.
+  * Date navigation (prev/today/next) at the top of the calendar.
+  * Click a day in week view → switches to day view for that date.
+- Loyalty audit ledger (PRD §5.11):
+  * Added getCustomerLedgerAdmin() action to src/lib/loyalty/actions.ts — returns last 50 ledger entries with staffUserName included.
+  * Added LoyaltyPointLedger.staffUser and .loyaltyRule Prisma relations (schema-only — the FK columns already existed). Added a new migration (20260702050000_phase3a_ledger_relations) to add the FK constraints at the DB level with ON DELETE SET NULL (audit trail is preserved even if the staff user or rule is deleted).
+  * Added a "View audit ledger" expandable panel in admin-loyalty-manager.tsx — table with When/Type/Δ/Balance/Description/By columns. Reloads on customer change. Invalidated automatically after redemption/adjustment.
+  * Replaced native <select> for reward rule with shadcn Select component.
+  * Removed dead useState(() => {}) from RuleDialog.
+- Staff management lifecycle (PRD §5.17):
+  * Added updateStaffRole(), setStaffActive(), resetStaffPassword() actions to src/lib/menu/actions.ts — all OWNER-gated with self-protection guards (can't demote/deactivate yourself, can't demote/deactivate the last active OWNER).
+  * Rewrote src/components/admin/admin-staff-list.tsx with inline role Select, active/inactive Switch, and a "More actions" dropdown (DropdownMenu) with Reset password / Activate-Deactivate / Delete. Self-row disables role/active/delete controls.
+  * Added empty state when no staff exist.
+- Menu category CRUD (PRD §5.17):
+  * Rewrote src/components/admin/admin-menu-list.tsx with a "Categories" button that opens a Dialog containing the CategoriesManager — add, rename (inline), reorder (up/down arrows), show/hide on menu (Switch), delete (blocked if items still in category, server-side enforced too).
+  * Empty state now directs user to the Categories dialog instead of telling them to use the seed script.
+- Event bookings workflow (PRD §5.9):
+  * Replaced permissive FLOW map with strict NEXT_ACTIONS — now only allows the immediate next step + DECLINED at each stage (was allowing NEW → QUOTED, NEW → CONFIRMED skips). Mirrors the catering component's behaviour.
+  * Replaced native <select> for filter with shadcn Select component.
+- Orders list polish (src/components/admin/admin-orders-list.tsx):
+  * Replaced single global `pending` state (which disabled every "Move to" button on the page during a transition) with `pendingOrderId` — only the row being transitioned shows a spinner, others remain clickable.
+  * Guarded null guestName/guestPhone — was rendering " · +254…" with no name when guestName was null. Now shows "Guest" and conditionally renders the phone separator.
+  * Removed CANCELLED from READY and OUT_FOR_DELIVERY allowed transitions (driver already dispatched — cancellation is misleading).
+- Kitchen dashboard (src/components/admin/admin-kitchen-dashboard.tsx):
+  * Replaced `socket: any` with a typed Socket interface.
+  * Added polling transport fallback — was forcing `transports: ["websocket"]` only, which breaks on networks that block websockets (corporate Wi-Fi, some mobile carriers).
+  * Added rollback on optimistic update failure — was moving the card to the new column before the server confirmed, leaving it in the wrong column until the next 15s poll if the server rejected the change. Now captures the previous status and reverts on error.
+  * Guarded null guestName/guestPhone rendering.
+  * Removed dead _kitchenIcons export and unused AlertCircle/ChefHat imports.
+  * Used the proper StaffRole type from Prisma instead of a hand-written union.
+- Analytics page (src/app/[slug]/admin/analytics/page.tsx):
+  * Pre-checks staff session before calling getAnalyticsForDashboard(). Distinguishes "not signed in" (redirect to sign-in) from "signed in but not authorised" (inline "Not authorised" message with link back to their default page). Previously redirected signed-in KITCHEN/FRONT_OF_HOUSE users to the sign-in page, confusing UX.
+- Reviews filter (src/components/admin/admin-reviews-list.tsx):
+  * Added filter tabs (all/pending/published) with counts at the top of the page. Component already supported showOnly but the page never passed a filter control.
+  * Added aria-label on star rating for screen readers.
+- AI recommender LLM upgrade (PRD §5.22 — "documented upgrade path"):
+  * Wired z-ai-web-dev-sdk into src/lib/recommend/actions.ts as an env-gated LLM re-ranker. The tag-based matcher always runs first (free, deterministic, no API cost); if a .z-ai-config file is present, the GLM model re-ranks the shortlist. Falls back silently to tag order on any failure.
+  * Added rankedBy field to RecommendationResult — UI surfaces an "AI-ranked" badge on the result count when the LLM was used.
+  * Updated .env.example with .z-ai-config format documentation (the SDK reads from a JSON config file, not env vars).
+- 404 / error boundary polish:
+  * Added src/app/global-error.tsx — catches errors in the root layout itself (regular error.tsx can't). Branded minimal page with Try again button.
+  * Made src/app/not-found.tsx slug-aware via DEFAULT_TENANT_SLUG import (was hardcoded "/majid-restaurant").
+  * Made src/app/[slug]/not-found.tsx slug-aware via useParams() (was hardcoded "/majid-restaurant/menu").
+- Verification:
+  * bun install — 1108 packages, all deps including new jose@6.2.3 resolved.
+  * bunx prisma generate — Prisma client regenerated with new LoyaltyPointLedger relations.
+  * bunx tsc --noEmit — 0 TypeScript errors.
+  * bunx eslint [changed files] — 0 errors, 0 warnings.
+  * bun run build — succeeds, 41 routes compile (5 static + 36 dynamic).
+  * .git directory verified intact: git status shows 25 modified/new files; git log shows the same 5 most recent commits as before; FETCH_HEAD/ORIG_HEAD/refs unchanged.
+
+Stage Summary:
+- 25 files modified/created, 0 files deleted, .git untouched.
+- All 5 critical issues from the QA report fixed: .env.example, customer tenant re-check, FCM token impersonation, OAuth cookie validation, sw.js push handler.
+- All 10 major issues fixed: NAV/route guard mismatch, mobile sign-out, reservation calendar, loyalty audit ledger, staff lifecycle, menu category CRUD, event workflow strictness, null guest guards, analytics not-authorised handling, kitchen dashboard socket/rollback/transport.
+- All Phase 1-4 PRD features verified implemented and intact: homepage, menu, WhatsApp, maps, promotions, gallery, about/contact, online ordering, reservations, catering, events, reviews, loyalty, customer accounts, M-Pesa, admin dashboard, kitchen dashboard, QR table menus, careers, analytics, AI recommendation, meal builder.
+- Customer flow intact: browse → search/filter → add to cart → guest or auth checkout → M-Pesa STK Push or cash → order status polling → review on completion.
+- Admin flow intact: sign-in (separate cookie) → role-gated shell → orders/reservations/catering/events/menu/tables/loyalty/reviews/careers/analytics/staff management.
+- Kitchen flow intact: tablet-optimised 3-column dashboard, large touch targets, Socket.IO + 15s polling fallback, visual urgency cues, optimistic updates with rollback.
+- TypeScript: clean. ESLint: clean. Build: succeeds.
+- Deliverable: /home/z/my-project/download/majid_restaurant_clone-qa-hardened.zip with .git preserved.

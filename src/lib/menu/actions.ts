@@ -225,6 +225,117 @@ export async function deleteStaffUser(id: string): Promise<MenuActionResult<{ id
   return { ok: true, data: { id } };
 }
 
+const UpdateStaffRoleSchema = z.object({
+  staffId: z.string().min(1),
+  role: z.enum(["OWNER", "MANAGER", "KITCHEN", "FRONT_OF_HOUSE"]),
+});
+
+/**
+ * Change a staff member's role. OWNER-gated. Prevents demoting yourself
+ * (you'd lock yourself out of the page that lets you fix it) and prevents
+ * demoting the last remaining OWNER (which would orphan the tenant).
+ */
+export async function updateStaffRole(
+  input: z.infer<typeof UpdateStaffRoleSchema>,
+): Promise<MenuActionResult<{ role: string }>> {
+  const parsed = UpdateStaffRoleSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input" };
+  const data = parsed.data;
+
+  const session = await requireStaff(["OWNER"]);
+  const { restaurant, db: tenant } = await getContextRestaurant();
+
+  if (session.staffUserId === data.staffId && data.role !== "OWNER") {
+    return { ok: false, error: "You cannot demote yourself. Promote another OWNER first." };
+  }
+
+  // Prevent demoting the last OWNER.
+  if (data.role !== "OWNER") {
+    const target = await tenant.staffUser.findUnique({ where: { id: data.staffId } });
+    if (target?.role === "OWNER") {
+      const ownerCount = await tenant.staffUser.count({
+        where: { role: "OWNER", isActive: true },
+      });
+      if (ownerCount <= 1) {
+        return { ok: false, error: "Cannot demote the last remaining OWNER. Promote another staff member first." };
+      }
+    }
+  }
+
+  const updated = await tenant.staffUser.update({
+    where: { id: data.staffId },
+    data: { role: data.role },
+  });
+
+  revalidatePath(`/${restaurant.slug}/admin/staff`);
+  return { ok: true, data: { role: updated.role } };
+}
+
+/**
+ * Activate / deactivate a staff member without deleting them. Deactivated
+ * staff cannot sign in (enforced in `src/lib/auth/staff.ts`). OWNER-gated,
+ * with the same self-protection guards as updateStaffRole.
+ */
+export async function setStaffActive(
+  staffId: string,
+  isActive: boolean,
+): Promise<MenuActionResult<{ isActive: boolean }>> {
+  const session = await requireStaff(["OWNER"]);
+  const { restaurant, db: tenant } = await getContextRestaurant();
+
+  if (session.staffUserId === staffId && !isActive) {
+    return { ok: false, error: "You cannot deactivate your own account." };
+  }
+
+  // Prevent deactivating the last active OWNER.
+  if (!isActive) {
+    const target = await tenant.staffUser.findUnique({ where: { id: staffId } });
+    if (target?.role === "OWNER") {
+      const activeOwnerCount = await tenant.staffUser.count({
+        where: { role: "OWNER", isActive: true },
+      });
+      if (activeOwnerCount <= 1) {
+        return { ok: false, error: "Cannot deactivate the last active OWNER." };
+      }
+    }
+  }
+
+  const updated = await tenant.staffUser.update({
+    where: { id: staffId },
+    data: { isActive },
+  });
+
+  revalidatePath(`/${restaurant.slug}/admin/staff`);
+  return { ok: true, data: { isActive: updated.isActive } };
+}
+
+/**
+ * Reset a staff member's password to a new value. OWNER-gated. Used when
+ * a staff member forgets their password — they can't self-serve without
+ * the old one. The new password must be at least 8 characters.
+ */
+export async function resetStaffPassword(
+  staffId: string,
+  newPassword: string,
+): Promise<MenuActionResult<{ ok: true }>> {
+  if (typeof newPassword !== "string" || newPassword.length < 8) {
+    return { ok: false, error: "Password must be at least 8 characters" };
+  }
+  await requireStaff(["OWNER"]);
+  const { restaurant, db: tenant } = await getContextRestaurant();
+
+  const { hashStaffPassword } = await import("@/lib/auth/staff");
+  const passwordHash = await hashStaffPassword(newPassword);
+
+  await tenant.staffUser.update({
+    where: { id: staffId },
+    data: { passwordHash },
+  });
+
+  revalidatePath(`/${restaurant.slug}/admin/staff`);
+  return { ok: true, data: { ok: true as const } };
+}
+
 /**
  * Customer account signup (PRD §5.13). Customer-side, not staff.
  *

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getCustomerForCurrentTenant } from "@/auth";
 
 /**
  * FCM token registration endpoint (PRD §5.15).
@@ -8,19 +9,25 @@ import { db } from "@/lib/db";
  * NotificationToken table so server-side notifications can actually fire on
  * order & reservation events.
  *
- * Accepts: `{ token, restaurantSlug, customerId?, platform?, userAgent? }`
+ * Accepts: `{ token, restaurantSlug, platform?, userAgent? }`
+ *
+ * Security: `customerId` is NEVER trusted from the request body — it is
+ * resolved from the NextAuth session via `getCustomerForCurrentTenant()`.
+ * This prevents a malicious client from registering push tokens under
+ * another customer's ID (which would let them receive that customer's
+ * order-status notifications).
+ *
+ * Anonymous tokens (no session) are allowed — they're how staff devices
+ * and not-yet-logged-in browsers subscribe to notifications. Customer
+ * tokens are stamped with customerId when the customer signs in.
  *
  * The endpoint is idempotent on (restaurantId, token) — re-registering an
  * existing token bumps `lastSeenAt` instead of inserting a duplicate.
- *
- * Anonymous tokens (no customerId) are allowed — they're how staff devices
- * and not-yet-logged-in browsers subscribe to notifications. Customer tokens
- * are stamped with customerId when the customer signs in (see sign-in flow).
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { token, restaurantSlug, customerId, platform, userAgent } = body ?? {};
+    const { token, restaurantSlug, platform, userAgent, customerId: bodyCustomerId } = body ?? {};
 
     if (!token || !restaurantSlug) {
       return NextResponse.json(
@@ -31,13 +38,32 @@ export async function POST(req: NextRequest) {
 
     const restaurant = await db.restaurant.findUnique({
       where: { slug: restaurantSlug },
-      select: { id: true },
+      select: { id: true, slug: true },
     });
     if (!restaurant) {
       return NextResponse.json(
         { ok: false, error: "Unknown restaurant" },
         { status: 404 },
       );
+    }
+
+    // Resolve customerId from the session — never trust the body. If a body
+    // customerId is provided AND it doesn't match the session, we silently
+    // ignore the body value (defensive — logged for monitoring).
+    let customerId: string | null = null;
+    try {
+      const customer = await getCustomerForCurrentTenant();
+      if (customer && customer.restaurantId === restaurant.id) {
+        customerId = customer.id;
+      } else if (bodyCustomerId) {
+        // Body supplied a customerId but no matching session — ignore it.
+        console.warn(
+          "[FCM] ignoring body customerId — no matching session for restaurant",
+          restaurant.slug,
+        );
+      }
+    } catch {
+      // Session lookup failed (e.g. no AUTH_SECRET) — register anonymously.
     }
 
     await db.notificationToken.upsert({
@@ -53,7 +79,7 @@ export async function POST(req: NextRequest) {
       create: {
         restaurantId: restaurant.id,
         token,
-        customerId: customerId ?? null,
+        customerId,
         platform: platform ?? null,
         userAgent: userAgent ?? null,
       },
