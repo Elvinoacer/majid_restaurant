@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getContextRestaurant } from "@/lib/restaurant/context";
 import { getStaffSession } from "@/lib/auth/staff";
 import { AdminShell } from "@/components/admin/admin-shell";
@@ -26,12 +27,15 @@ export default async function AdminLayout({
   const { restaurant } = await getContextRestaurant();
   const session = await getStaffSession();
 
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") || "";
+
   // Sign-in route renders without the shell or auth gate.
+  if (pathname.endsWith("/admin/sign-in")) {
+    return <>{children}</>;
+  }
+
   if (!session) {
-    if (slug && (await params).slug) {
-      // check if we're already on the sign-in page
-      // (the page itself doesn't need this redirect)
-    }
     redirect(`/${slug}/admin/sign-in`);
   }
 

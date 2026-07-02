@@ -80,6 +80,7 @@ export default auth((req: NextRequest) => {
   // Attach slug to request headers so RSCs / Actions can read it.
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-restaurant-slug", slug);
+  requestHeaders.set("x-pathname", pathname);
 
   const res = NextResponse.next({
     request: { headers: requestHeaders },
