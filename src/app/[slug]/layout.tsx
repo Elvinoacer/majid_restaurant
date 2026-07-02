@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
@@ -23,6 +24,10 @@ export default async function TenantLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") || "";
+  const isAppView = pathname.includes("/admin") || pathname.includes("/account");
+
   let ctx;
   try {
     ctx = await getContextRestaurant();
@@ -36,29 +41,33 @@ export default async function TenantLayout({
   const { restaurant } = ctx;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className={isAppView ? "flex h-screen overflow-hidden flex-col" : "flex min-h-screen flex-col"}>
       <CartTenantSync slug={slug} />
-      <SiteHeader
-        slug={slug}
-        restaurantName={restaurant.name}
-        logoUrl={restaurant.logoUrl}
-        phone={restaurant.contactPhone}
-        address={restaurant.address}
-        hasEventSpace={restaurant.hasEventSpace}
-        comboBuilderEnabled={restaurant.comboBuilderEnabled}
-      />
-      <main className="flex-1">{children}</main>
-      <SiteFooter
-        slug={slug}
-        restaurantName={restaurant.name}
-        logoUrl={restaurant.logoUrl}
-        phone={restaurant.contactPhone}
-        email={restaurant.contactEmail}
-        address={restaurant.address}
-        whatsappPhone={restaurant.whatsappPhone}
-        hasEventSpace={restaurant.hasEventSpace}
-        comboBuilderEnabled={restaurant.comboBuilderEnabled}
-      />
+      {!isAppView && (
+        <SiteHeader
+          slug={slug}
+          restaurantName={restaurant.name}
+          logoUrl={restaurant.logoUrl}
+          phone={restaurant.contactPhone}
+          address={restaurant.address}
+          hasEventSpace={restaurant.hasEventSpace}
+          comboBuilderEnabled={restaurant.comboBuilderEnabled}
+        />
+      )}
+      <main className={isAppView ? "flex-1 overflow-y-auto" : "flex-1"}>{children}</main>
+      {!isAppView && (
+        <SiteFooter
+          slug={slug}
+          restaurantName={restaurant.name}
+          logoUrl={restaurant.logoUrl}
+          phone={restaurant.contactPhone}
+          email={restaurant.contactEmail}
+          address={restaurant.address}
+          whatsappPhone={restaurant.whatsappPhone}
+          hasEventSpace={restaurant.hasEventSpace}
+          comboBuilderEnabled={restaurant.comboBuilderEnabled}
+        />
+      )}
     </div>
   );
 }

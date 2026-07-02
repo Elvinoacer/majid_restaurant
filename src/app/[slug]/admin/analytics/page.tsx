@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAnalyticsForDashboard } from "@/lib/analytics/actions";
 import { AdminAnalyticsDashboard } from "@/components/admin/admin-analytics-dashboard";
-import { formatKsh } from "@/lib/whatsapp/order";
 import { StaffAuthError, getStaffSession } from "@/lib/auth/staff";
 import { isRouteAllowedForRole, ROLE_DEFAULT_ROUTES } from "@/lib/auth/roles";
 import Link from "next/link";
@@ -75,7 +74,7 @@ export default async function AdminAnalyticsPage({
     throw e;
   }
 
-  return <AdminAnalyticsDashboard slug={slug} data={data} formatKsh={formatKsh} />;
+  return <AdminAnalyticsDashboard slug={slug} data={data} />;
 }
 
 export async function generateMetadata() {

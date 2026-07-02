@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useTransition } from "react";
+import { formatKsh } from "@/lib/whatsapp/order";
 
 // ─── Types (mirror the server-side return shapes) ────────────────────────
 
@@ -113,7 +114,6 @@ export type AnalyticsDashboardData = {
 type DashboardProps = {
   slug: string;
   data: AnalyticsDashboardData;
-  formatKsh: (n: number) => string;
 };
 
 // ─── Color tokens (kept consistent with the warm restaurant palette) ─────
@@ -138,7 +138,7 @@ const HEATMAP_STOPS = [
 
 // ─── Component ───────────────────────────────────────────────────────────
 
-export function AdminAnalyticsDashboard({ slug, data, formatKsh }: DashboardProps) {
+export function AdminAnalyticsDashboard({ slug, data }: DashboardProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [days, setDays] = useState(data.days);

@@ -240,7 +240,7 @@ export function AdminShell({
   };
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex h-screen overflow-hidden flex-col md:flex-row">
       {/* Desktop sidebar */}
       <aside className="hidden border-r border-border bg-sidebar md:flex md:w-64 md:flex-col md:flex-shrink-0">
         <div className="border-b border-sidebar-border px-5 py-5">
@@ -336,7 +336,7 @@ export function AdminShell({
       </header>
 
       {/* Main */}
-      <main className="flex-1 bg-background">
+      <main className="flex-1 bg-background overflow-y-auto">
         <div className="hidden items-center justify-between border-b border-border bg-card/40 px-6 py-2.5 md:flex">
           <Link
             href={`/${slug}`}
