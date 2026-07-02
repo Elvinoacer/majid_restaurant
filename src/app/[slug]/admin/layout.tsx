@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getContextRestaurant } from "@/lib/restaurant/context";
 import { getStaffSession } from "@/lib/auth/staff";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { isRouteAllowedForRole, ROLE_DEFAULT_ROUTES } from "@/lib/auth/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,11 @@ export default async function AdminLayout({
 
   if (!session) {
     redirect(`/${slug}/admin/sign-in`);
+  }
+
+  if (!isRouteAllowedForRole(pathname, session.role)) {
+    const defaultRoute = ROLE_DEFAULT_ROUTES[session.role] || "/admin";
+    redirect(`/${slug}${defaultRoute}`);
   }
 
   return (

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { staffLoginAction } from "@/lib/auth/staff-actions";
+import { ROLE_DEFAULT_ROUTES } from "@/lib/auth/roles";
+import type { StaffRole } from "@/generated/prisma/client";
 
 export function StaffSignInForm({ slug }: { slug: string }) {
   const router = useRouter();
@@ -25,7 +27,8 @@ export function StaffSignInForm({ slug }: { slug: string }) {
       }
       toast.success("Signed in");
       router.refresh();
-      router.push(`/${slug}/admin`);
+      const defaultRoute = ROLE_DEFAULT_ROUTES[result.role as StaffRole] || "/admin";
+      router.push(`/${slug}${defaultRoute}`);
     });
   };
 
