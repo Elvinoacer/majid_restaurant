@@ -30,8 +30,8 @@ async function main() {
         "Family-run Kenyan-Indian restaurant in the heart of Nakuru CBD. " +
         "Serving full breakfast, lunch, and dinner with dine-in, takeaway, and delivery. " +
         "Famous for our chicken and mutton biryani, freshly baked chapati, and house-made mango lassi.",
-      whatsappPhone: "254712345678",
-      contactPhone: "+254 712 345 678",
+      whatsappPhone: "254790670542",
+      contactPhone: "+254 790 670 542",
       contactEmail: "hello@majidrestaurant.co.ke",
       address: "Kenyatta Avenue, Nakuru CBD, Nakuru, Kenya",
       latitude: -0.3031,
@@ -55,8 +55,8 @@ async function main() {
         "Family-run Kenyan-Indian restaurant in the heart of Nakuru CBD. " +
         "Serving full breakfast, lunch, and dinner with dine-in, takeaway, and delivery. " +
         "Famous for our chicken and mutton biryani, freshly baked chapati, and house-made mango lassi.",
-      whatsappPhone: "254712345678",
-      contactPhone: "+254 712 345 678",
+      whatsappPhone: "254790670542",
+      contactPhone: "+254 790 670 542",
       contactEmail: "hello@majidrestaurant.co.ke",
       address: "Kenyatta Avenue, Nakuru CBD, Nakuru, Kenya",
       latitude: -0.3031,

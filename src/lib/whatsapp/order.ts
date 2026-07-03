@@ -15,7 +15,7 @@ export type WhatsAppOrderLine = {
 
 export type WhatsAppOrderPayload = {
   restaurantName: string;
-  whatsappPhone: string; // E.164, e.g. "254712345678"
+  whatsappPhone: string; // E.164, e.g. "254790670542"
   customerName: string;
   customerPhone: string;
   fulfillmentType: "DELIVERY" | "PICKUP" | "DINE_IN";
@@ -121,7 +121,7 @@ export function buildSingleItemWhatsAppMessage(args: {
 
 /**
  * Construct the full wa.me URL.
- * `whatsappPhone` must be E.164 without leading `+` (e.g. "254712345678").
+ * `whatsappPhone` must be E.164 without leading `+` (e.g. "254790670542").
  */
 export function buildWhatsAppUrl(whatsappPhone: string, message: string): string {
   const normalized = whatsappPhone.replace(/[^\d]/g, "");
