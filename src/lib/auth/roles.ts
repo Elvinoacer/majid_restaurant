@@ -1,5 +1,5 @@
-import { StaffRole } from "@/generated/prisma/client";
-
+import type { StaffRole } from "@/generated/prisma/client";
+export type { StaffRole }; // Re-export for convenience if needed, though we can just import it.
 /**
  * Per-role default landing route after sign-in.
  * Used by the admin layout to redirect staff to the most relevant page

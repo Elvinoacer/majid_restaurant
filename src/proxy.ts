@@ -40,7 +40,17 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { jwtVerify } from "jose";
+import { isRouteAllowedForRole, ROLE_DEFAULT_ROUTES, type StaffRole } from "@/lib/auth/roles";
 
+const ALG = "HS256";
+function getSecret(): Uint8Array {
+  const s = process.env.AUTH_SECRET;
+  if (!s) {
+    throw new Error("AUTH_SECRET is required for staff session signing");
+  }
+  return new TextEncoder().encode(s);
+}
 export const DEFAULT_TENANT_SLUG = "majid-restaurant";
 
 const EXEMPT_PREFIXES = [
@@ -53,7 +63,7 @@ const EXEMPT_PREFIXES = [
   "/api/mpesa",
 ];
 
-export default auth((req: NextRequest) => {
+export default auth(async (req: NextRequest) => {
   const { pathname } = req.nextUrl;
 
   // Skip asset/internal/auth/webhook paths entirely.
@@ -75,6 +85,31 @@ export default auth((req: NextRequest) => {
   // Skip API routes (they handle their own tenancy via body or path).
   if (slug === "api") {
     return NextResponse.next();
+  }
+
+  // RBAC for admin routes
+  if (segments[1] === "admin" && !pathname.endsWith("/admin/sign-in")) {
+    const cookie = req.cookies.get("majidos_staff_session")?.value;
+    if (!cookie) {
+      const url = req.nextUrl.clone();
+      url.pathname = `/${slug}/admin/sign-in`;
+      return NextResponse.redirect(url);
+    }
+    try {
+      const { payload } = await jwtVerify(cookie, getSecret(), { algorithms: [ALG] });
+      const role = payload.role as StaffRole;
+      if (!isRouteAllowedForRole(pathname, role)) {
+        const defaultRoute = ROLE_DEFAULT_ROUTES[role] || "/admin";
+        const url = req.nextUrl.clone();
+        url.pathname = `/${slug}${defaultRoute}`;
+        return NextResponse.redirect(url);
+      }
+    } catch {
+      // Invalid JWT
+      const url = req.nextUrl.clone();
+      url.pathname = `/${slug}/admin/sign-in`;
+      return NextResponse.redirect(url);
+    }
   }
 
   // Attach slug to request headers so RSCs / Actions can read it.
