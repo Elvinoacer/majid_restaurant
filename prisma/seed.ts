@@ -452,7 +452,7 @@ async function main() {
         title: "Ramadan Iftar Combo",
         description: "Family iftar: 2 biryani + 4 drinks + 1 dessert. KSh 1,800 (save KSh 360).",
         imageUrl:
-          "https://images.unsplash.com/photo-1604908554007-1e90fe6a8b6a?w=1600&h=600&fit=crop",
+          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRLYXJP_zy66Mt0RNDWhtt1BoC9gfk6vRWPnJKH9Red-dEj5A8HwASGIw&s=10",
         startDate: inDays(-1),
         endDate: inDays(20),
         isActive: true,
