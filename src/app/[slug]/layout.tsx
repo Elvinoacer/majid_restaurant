@@ -89,7 +89,21 @@ export async function generateMetadata({
     openGraph: {
       title: restaurant.name,
       description: restaurant.tagline ?? undefined,
-      images: restaurant.coverImageUrl ? [{ url: restaurant.coverImageUrl }] : undefined,
+      images: slug === "majid-restaurant"
+        ? [{ url: "https://majid-restaurant.vercel.app/majid_banner_url.webp" }]
+        : restaurant.coverImageUrl 
+        ? [{ url: restaurant.coverImageUrl }] 
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: restaurant.name,
+      description: restaurant.tagline ?? undefined,
+      images: slug === "majid-restaurant"
+        ? [{ url: "https://majid-restaurant.vercel.app/majid_banner_url.webp" }]
+        : restaurant.coverImageUrl 
+        ? [{ url: restaurant.coverImageUrl }] 
+        : undefined,
     },
   };
 }
