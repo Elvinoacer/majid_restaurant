@@ -4,15 +4,22 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
+  Briefcase,
+  Calendar,
+  CalendarDays,
+  ChefHat,
   Clock,
+  Heart,
+  ImageIcon,
+  Mail,
   MapPin,
   MessageCircle,
+  Phone,
   Sparkles,
   Star,
   Utensils,
-  Phone,
-  CalendarDays,
-  ChefHat,
+  UtensilsCrossed,
+  Wand2,
 } from "lucide-react";
 import type { Restaurant, Promotion, Review } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
@@ -41,6 +48,22 @@ type HomePageProps = {
   publicUrl: string;
 };
 
+/**
+ * Experience card — a clickable entry point to one of the public pages
+ * (About / Gallery / Reservations / Catering / Events / Meal Builder /
+ * Recommend / Careers / Contact).
+ *
+ * Feature-flagged entries (events, meal-builder) are conditionally included
+ * by the caller so the grid never advertises a page that 404s.
+ */
+type ExperienceLink = {
+  href: string;
+  icon: typeof Heart;
+  title: string;
+  description: string;
+  ariaLabel: string;
+};
+
 export function HomePage({
   restaurant,
   hoursToday,
@@ -56,6 +79,7 @@ export function HomePage({
       : null;
 
   const whatsappUrl = `https://wa.me/${restaurant.whatsappPhone.replace(/[^\d]/g, "")}`;
+  const base = `/${restaurant.slug}`;
 
   const jsonLd = buildRestaurantJsonLd({
     restaurant: {
@@ -76,6 +100,151 @@ export function HomePage({
     reviews,
     publicUrl,
   });
+
+  /**
+   * Quick-nav chips shown directly under the hero address. Surfaces the
+   * "non-ordering" public pages (about / gallery / reservations / contact)
+   * so a curious visitor doesn't have to scan the menu bar to discover them.
+   */
+  const heroChips: Array<{ label: string; href: string }> = [
+    { label: "About", href: `${base}/about` },
+    { label: "Gallery", href: `${base}/gallery` },
+    { label: "Reserve", href: `${base}/reservations` },
+    { label: "Contact", href: `${base}/contact` },
+  ];
+
+  /**
+   * Quick-features strip — informational tiles that double as deep-links
+   * to the public page each tile describes. `tel:` links render as `<a>`
+   * since Next.js `<Link>` is for internal routes only.
+   */
+  type QuickFeature = {
+    icon: typeof ChefHat;
+    label: string;
+    sub: string;
+    href: string;
+    ariaLabel: string;
+    external?: boolean;
+  };
+  const quickFeatures: QuickFeature[] = [
+    {
+      icon: ChefHat,
+      label: "Fresh daily",
+      sub: "Prepared to order",
+      href: `${base}/about`,
+      ariaLabel: `Read about ${restaurant.name}'s kitchen and sourcing story`,
+    },
+    {
+      icon: Utensils,
+      label: "Order online",
+      sub: "Delivery across Nakuru CBD",
+      href: `${base}/menu`,
+      ariaLabel: "Browse the menu and order online",
+    },
+    {
+      icon: Phone,
+      label: "Call to order",
+      sub: restaurant.contactPhone ?? "Available",
+      href: `tel:${(restaurant.contactPhone ?? "").replace(/\s/g, "")}`,
+      ariaLabel: "Call to place an order",
+      external: true,
+    },
+    {
+      icon: CalendarDays,
+      label: "Events & catering",
+      sub: "Weddings, corporate",
+      href: restaurant.hasEventSpace ? `${base}/events` : `${base}/catering`,
+      ariaLabel: "Explore events and catering options",
+    },
+  ];
+
+  /**
+   * The "More to Explore" grid — every public page surfaced as a premium
+   * interactive card. Respects feature flags (events / meal-builder) so
+   * we never link to a route that 404s.
+   */
+  const experiences: ExperienceLink[] = [
+    {
+      href: `${base}/about`,
+      icon: Heart,
+      title: "Our Story",
+      description:
+        "Meet the family behind the kitchen — our journey, our mission, and the sourcing standards behind every plate.",
+      ariaLabel: `Read about ${restaurant.name}'s story`,
+    },
+    {
+      href: `${base}/gallery`,
+      icon: ImageIcon,
+      title: "Gallery",
+      description:
+        "Step inside — a peek at our food, our dining room, and the people who make it all happen.",
+      ariaLabel: "Browse the photo gallery",
+    },
+    {
+      href: `${base}/reservations`,
+      icon: Calendar,
+      title: "Reserve a Table",
+      description:
+        "Book your spot for lunch, dinner, or that special occasion — confirmed in seconds.",
+      ariaLabel: "Make a reservation",
+    },
+    {
+      href: `${base}/catering`,
+      icon: UtensilsCrossed,
+      title: "Catering",
+      description:
+        "Bring our kitchen to your event — bulk trays, full-service staffing, custom menus.",
+      ariaLabel: "Enquire about catering",
+    },
+    ...(restaurant.hasEventSpace
+      ? [
+          {
+            href: `${base}/events`,
+            icon: CalendarDays,
+            title: "Events & Private Hire",
+            description:
+              "Host your celebration in our dedicated event space — birthdays, corporate, weddings.",
+            ariaLabel: "Book the event space",
+          },
+        ]
+      : []),
+    ...(restaurant.comboBuilderEnabled
+      ? [
+          {
+            href: `${base}/meal-builder`,
+            icon: Wand2,
+            title: "Build a Combo",
+            description:
+              "Mix and match your favourites to build the perfect plate, your way.",
+            ariaLabel: "Build a custom combo",
+          },
+        ]
+      : []),
+    {
+      href: `${base}/recommend`,
+      icon: Sparkles,
+      title: "AI Dish Finder",
+      description:
+        "Not sure what to order? Tell us your mood and we'll suggest the perfect dish.",
+      ariaLabel: "Get a personalised dish recommendation",
+    },
+    {
+      href: `${base}/careers`,
+      icon: Briefcase,
+      title: "Careers",
+      description:
+        "Join our team — we're always looking for passionate cooks, servers, and hosts.",
+      ariaLabel: "View career opportunities",
+    },
+    {
+      href: `${base}/contact`,
+      icon: Mail,
+      title: "Get in Touch",
+      description:
+        "Phone, WhatsApp, email, address, hours — every way to reach us, in one place.",
+      ariaLabel: "Open the contact page",
+    },
+  ];
 
   return (
     <>
@@ -174,7 +343,7 @@ export function HomePage({
               className="mt-9 flex flex-wrap gap-3"
             >
               <Button asChild size="lg" className="gap-2 text-base">
-                <Link href={`/${restaurant.slug}/menu`}>
+                <Link href={`${base}/menu`}>
                   <Utensils className="h-4 w-4" />
                   Browse Menu &amp; Order
                 </Link>
@@ -202,6 +371,27 @@ export function HomePage({
               <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
               <span>{restaurant.address}</span>
             </motion.div>
+
+            {/* Quick-nav chips — surface non-ordering public pages
+                right in the hero so visitors don't have to scan the
+                menu bar to discover them. */}
+            <motion.nav
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.75 }}
+              className="mt-5 flex flex-wrap gap-2"
+              aria-label="Quick links"
+            >
+              {heroChips.map((chip) => (
+                <Link
+                  key={chip.href}
+                  href={chip.href}
+                  className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-white/85 backdrop-blur-sm transition-colors duration-200 hover:border-white/30 hover:bg-white/10 hover:text-white"
+                >
+                  {chip.label}
+                </Link>
+              ))}
+            </motion.nav>
           </div>
 
           {/* FCM opt-in */}
@@ -211,37 +401,53 @@ export function HomePage({
         </Container>
       </section>
 
-      {/* ── Quick Features Strip ──────────────────────────────── */}
+      {/* ── Quick Features Strip (clickable) ─────────────────────── */}
       <FadeIn>
         <div className="border-b border-border bg-card/60 backdrop-blur-sm">
           <Container>
             <div className="grid grid-cols-2 gap-px sm:grid-cols-4">
-              {[
-                { icon: ChefHat, label: "Fresh daily", sub: "Prepared to order" },
-                { icon: MapPin, label: "Delivery", sub: "Across Nakuru CBD" },
-                { icon: Phone, label: "Call to order", sub: restaurant.contactPhone ?? "Available" },
-                { icon: CalendarDays, label: "Events & catering", sub: "Weddings, corporate" },
-              ].map((f, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 px-4 py-4 sm:px-5 sm:py-5"
-                >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <f.icon className="h-4.5 w-4.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{f.label}</p>
-                    <p className="truncate text-xs text-muted-foreground">{f.sub}</p>
-                  </div>
-                </div>
-              ))}
+              {quickFeatures.map((f, i) => {
+                const Icon = f.icon;
+                const inner = (
+                  <>
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors duration-300 group-hover:bg-primary/15">
+                      <Icon className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{f.label}</p>
+                      <p className="truncate text-xs text-muted-foreground">{f.sub}</p>
+                    </div>
+                  </>
+                );
+                const className =
+                  "group flex items-center gap-3 px-4 py-4 transition-colors duration-200 hover:bg-accent/5 sm:px-5 sm:py-5";
+                return f.external ? (
+                  <a
+                    key={i}
+                    href={f.href}
+                    aria-label={f.ariaLabel}
+                    className={className}
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <Link
+                    key={i}
+                    href={f.href}
+                    aria-label={f.ariaLabel}
+                    className={className}
+                  >
+                    {inner}
+                  </Link>
+                );
+              })}
             </div>
           </Container>
         </div>
       </FadeIn>
 
       <Container className="py-12 sm:py-16">
-        {/* ── Promotions ──────────────────────────────────────── */}
+        {/* ── Promotions ──────────────────────────────────────────── */}
         {promotions.length > 0 && (
           <FadeIn>
             <section className="mb-16" aria-labelledby="promos-heading">
@@ -253,14 +459,14 @@ export function HomePage({
           </FadeIn>
         )}
 
-        {/* ── Popular items ───────────────────────────────────── */}
+        {/* ── Popular items ───────────────────────────────────────── */}
         {popularItems.length > 0 && (
           <section className="mb-16">
             <FadeIn>
               <SectionHeading
                 title="Popular Today"
                 description="What other diners are loving right now"
-                actionHref={`/${restaurant.slug}/menu`}
+                actionHref={`${base}/menu`}
                 actionLabel="See full menu"
               />
             </FadeIn>
@@ -268,7 +474,7 @@ export function HomePage({
               {popularItems.slice(0, 4).map((item) => (
                 <motion.div key={item.id} variants={staggerChild}>
                   <Link
-                    href={`/${restaurant.slug}/menu`}
+                    href={`${base}/menu`}
                     className="group block overflow-hidden rounded-2xl border border-border bg-card elevation-1 transition-all duration-300 hover:elevation-2 hover:-translate-y-1 hover:border-primary/25"
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-muted">
@@ -314,10 +520,70 @@ export function HomePage({
           </section>
         )}
 
-        {/* ── Section divider ──────────────────────────────────── */}
+        {/* ── Section divider ─────────────────────────────────────── */}
         <div className="section-divider mb-16" aria-hidden />
 
-        {/* ── AI Recommender ──────────────────────────────────── */}
+        {/* ── More to Explore ─────────────────────────────────────── */}
+        {/* The marquee new section — every public page surfaced as a
+            premium interactive card. Single source of truth for
+            "what else can I do on this site?" without making the visitor
+            scan the menu bar. */}
+        <section className="mb-16" aria-labelledby="explore-heading">
+          <FadeIn>
+            <SectionHeading
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <UtensilsCrossed className="h-5 w-5 text-primary" />
+                  More to Explore
+                </span>
+              }
+              description="Everything we offer — one tap away."
+              id="explore-heading"
+            />
+          </FadeIn>
+          <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+            {experiences.map((exp) => {
+              const Icon = exp.icon;
+              return (
+                <motion.div key={exp.href} variants={staggerChild}>
+                  <Link
+                    href={exp.href}
+                    aria-label={exp.ariaLabel}
+                    className="group relative flex h-full flex-col rounded-2xl border border-border bg-card p-5 elevation-1 transition-all duration-300 hover:elevation-2 hover:-translate-y-1 hover:border-primary/30 sm:p-6"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-accent/10 text-primary transition-colors duration-300 group-hover:from-primary/20 group-hover:to-accent/15">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <ArrowRight
+                        className="h-4 w-4 text-muted-foreground/40 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-primary"
+                        aria-hidden
+                      />
+                    </div>
+                    <h3 className="font-display text-base font-bold tracking-tight text-foreground sm:text-lg">
+                      {exp.title}
+                    </h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                      {exp.description}
+                    </p>
+                    <span
+                      className="mt-4 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                      aria-hidden
+                    >
+                      Explore
+                      <ArrowRight className="h-3 w-3" />
+                    </span>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </StaggerContainer>
+        </section>
+
+        {/* ── Section divider ─────────────────────────────────────── */}
+        <div className="section-divider mb-16" aria-hidden />
+
+        {/* ── AI Recommender ──────────────────────────────────────── */}
         <FadeIn>
           <section className="mb-16" aria-labelledby="recommend-heading">
             <SectionHeading
@@ -328,7 +594,7 @@ export function HomePage({
                 </span>
               }
               description="Tell us your mood and we'll suggest the perfect dish"
-              actionHref={`/${restaurant.slug}/recommend`}
+              actionHref={`${base}/recommend`}
               actionLabel="Full experience"
             />
             <AiRecommender
@@ -339,10 +605,10 @@ export function HomePage({
           </section>
         </FadeIn>
 
-        {/* ── Section divider ──────────────────────────────────── */}
+        {/* ── Section divider ─────────────────────────────────────── */}
         {reviews.length > 0 && <div className="section-divider mb-16" aria-hidden />}
 
-        {/* ── Reviews ─────────────────────────────────────────── */}
+        {/* ── Reviews ─────────────────────────────────────────────── */}
         {reviews.length > 0 && (
           <section className="mb-16" aria-labelledby="reviews-heading">
             <FadeIn>
@@ -393,10 +659,103 @@ export function HomePage({
           </section>
         )}
 
-        {/* ── Section divider ──────────────────────────────────── */}
+        {/* ── Section divider ─────────────────────────────────────── */}
         <div className="section-divider mb-16" aria-hidden />
 
-        {/* ── Map ─────────────────────────────────────────────── */}
+        {/* ── Plan Your Visit CTA ─────────────────────────────────── */}
+        {/* Final conversion band before the map — pulls the three
+            highest-intent actions (reserve, order, contact) into one
+            visually distinct surface so the visitor doesn't have to
+            scroll back to the top to act. */}
+        <FadeIn>
+          <section className="mb-16" aria-labelledby="visit-heading">
+            <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/5 via-card to-accent/5 p-6 elevation-1 sm:p-10">
+              {/* Decorative warm glow */}
+              <div
+                className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full opacity-40"
+                style={{
+                  background:
+                    "radial-gradient(circle, oklch(0.74 0.16 75 / 0.45), transparent 70%)",
+                }}
+                aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full opacity-25"
+                style={{
+                  background:
+                    "radial-gradient(circle, oklch(0.55 0.13 38 / 0.4), transparent 70%)",
+                }}
+                aria-hidden
+              />
+              <div className="relative grid grid-cols-1 gap-8 lg:grid-cols-2 lg:items-center">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                    Plan your visit
+                  </p>
+                  <h2
+                    id="visit-heading"
+                    className="font-display text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl"
+                  >
+                    Come hungry. Leave happy.
+                  </h2>
+                  <p className="mt-3 max-w-md text-sm leading-relaxed text-foreground/75 sm:text-base">
+                    Reserve a table for tonight, order ahead for pickup, or
+                    reach out with any question — whatever you need, our team
+                    is ready.
+                  </p>
+                  <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-foreground/75">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-foreground">
+                      {hoursToday.label}
+                    </span>
+                    <span className="text-muted-foreground" aria-hidden>
+                      ·
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1.5 ${
+                        hoursToday.isOpenNow ? "text-success" : "text-danger"
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          hoursToday.isOpenNow
+                            ? "bg-success animate-pulse-soft"
+                            : "bg-danger"
+                        }`}
+                      />
+                      {hoursToday.isOpenNow ? "Open now" : "Closed"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap lg:flex-col lg:items-stretch">
+                  <Button asChild size="lg" className="gap-2">
+                    <Link href={`${base}/reservations`}>
+                      <Calendar className="h-4 w-4" />
+                      Reserve a Table
+                    </Link>
+                  </Button>
+                  <Button asChild size="lg" variant="secondary" className="gap-2">
+                    <Link href={`${base}/menu`}>
+                      <Utensils className="h-4 w-4" />
+                      Order Online
+                    </Link>
+                  </Button>
+                  <Button asChild size="lg" variant="outline" className="gap-2">
+                    <Link href={`${base}/contact`}>
+                      <Mail className="h-4 w-4" />
+                      Contact Us
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </FadeIn>
+
+        {/* ── Section divider ─────────────────────────────────────── */}
+        <div className="section-divider mb-16" aria-hidden />
+
+        {/* ── Map ─────────────────────────────────────────────────── */}
         <FadeIn>
           <section aria-labelledby="location-heading" className="mb-4">
             <SectionHeading
