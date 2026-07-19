@@ -15,6 +15,7 @@ import {
   MapPin,
   MessageCircle,
   Phone,
+  Quote,
   Sparkles,
   Star,
   Utensils,
@@ -46,6 +47,10 @@ type HomePageProps = {
   reviews: Array<Pick<Review, "rating" | "comment" | "createdAt">>;
   popularItems: ReturnType<typeof withTagsList>;
   publicUrl: string;
+  /** Homepage story teaser — null when the tenant hasn't filled in About yet. */
+  aboutContent: { story: string | null; mission: string | null } | null;
+  /** A handful of gallery shots for the homepage teaser strip. */
+  galleryPreview: Array<{ id: string; imageUrl: string; caption: string | null }>;
 };
 
 /**
@@ -72,6 +77,8 @@ export function HomePage({
   reviews,
   popularItems,
   publicUrl,
+  aboutContent,
+  galleryPreview,
 }: HomePageProps) {
   const avgRating =
     reviews.length > 0
@@ -246,6 +253,36 @@ export function HomePage({
     },
   ];
 
+  /**
+   * Trust-stats band shown right under the hero. Built only from real,
+   * per-tenant data already on the page — no invented "X years in
+   * business" style numbers, since this component is shared across every
+   * MajidOS tenant and we can't assert facts we haven't been given.
+   * Entries with a null value are dropped rather than shown as "—".
+   */
+  const trustStats: Array<{ icon: typeof Star; value: string; label: string }> = [
+    avgRating && {
+      icon: Star,
+      value: `${avgRating}★`,
+      label: `From ${reviews.length} guest review${reviews.length === 1 ? "" : "s"}`,
+    },
+    hoursToday.isOpenNow && {
+      icon: Clock,
+      value: "Open Now",
+      label: hoursToday.label,
+    },
+    popularItems.length > 0 && {
+      icon: Utensils,
+      value: `${popularItems.length}+`,
+      label: "Guest-favourite dishes",
+    },
+    galleryPreview.length > 0 && {
+      icon: ImageIcon,
+      value: `${galleryPreview.length}+`,
+      label: "Photos of the kitchen & dining room",
+    },
+  ].filter(Boolean) as Array<{ icon: typeof Star; value: string; label: string }>;
+
   return (
     <>
       <script
@@ -399,7 +436,56 @@ export function HomePage({
             <FcmOptIn restaurantSlug={restaurant.slug} />
           </div>
         </Container>
+
+        {/* Trust-stats bar — floats across the hero/content seam so it
+            reads as one deliberate moment rather than a bolted-on strip.
+            Every number here comes from real per-tenant data fetched
+            above (ratings, hours, popular items, gallery count). */}
+        {trustStats.length > 0 && (
+          <div className="relative hidden sm:block">
+            <Container>
+              {/* Tailwind needs literal class names to generate CSS for —
+                  a template-string class like `grid-cols-${n}` would be
+                  invisible to the JIT scanner and silently produce no
+                  column rule, so we map to a fixed literal per count. */}
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.85, ease: [0.22, 0.61, 0.36, 1] }}
+                className={`relative -mb-10 grid divide-x divide-border overflow-hidden rounded-2xl border border-border bg-card/90 elevation-2 backdrop-blur-md ${
+                  {
+                    1: "grid-cols-1",
+                    2: "grid-cols-2",
+                    3: "grid-cols-3",
+                  }[trustStats.length] ?? "grid-cols-2 sm:grid-cols-4"
+                }`}
+              >
+                {trustStats.map((stat, i) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div
+                      key={i}
+                      className="flex flex-col items-center gap-1 px-4 py-5 text-center sm:py-6"
+                    >
+                      <Icon className="h-4 w-4 text-primary" aria-hidden />
+                      <p className="font-display text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                        {stat.value}
+                      </p>
+                      <p className="text-[11px] leading-tight text-muted-foreground sm:text-xs">
+                        {stat.label}
+                      </p>
+                    </div>
+                  );
+                })}
+              </motion.div>
+            </Container>
+          </div>
+        )}
       </section>
+
+      {/* Spacer that only exists to absorb the trust-stats bar's negative
+          margin above, so it doesn't overlap the Quick Features Strip. */}
+      {trustStats.length > 0 && <div className="hidden h-10 sm:block" aria-hidden />}
 
       {/* ── Quick Features Strip (clickable) ─────────────────────── */}
       <FadeIn>
@@ -579,6 +665,96 @@ export function HomePage({
             })}
           </StaggerContainer>
         </section>
+
+        {/* ── Section divider ─────────────────────────────────────── */}
+        {(aboutContent?.story || galleryPreview.length > 0) && (
+          <div className="section-divider mb-16" aria-hidden />
+        )}
+
+        {/* ── Our Story ────────────────────────────────────────────── */}
+        {/* Pulls the real AboutContent row into a homepage teaser so the
+            story doesn't only live on /about. Gracefully narrows: story +
+            photos → both columns; only one of the two → single column. */}
+        {(aboutContent?.story || galleryPreview.length > 0) && (
+          <section className="mb-16" aria-labelledby="story-heading">
+            <div
+              className={`grid grid-cols-1 items-center gap-8 lg:gap-12 ${
+                aboutContent?.story && galleryPreview.length > 0
+                  ? "lg:grid-cols-2"
+                  : ""
+              }`}
+            >
+              {aboutContent?.story && (
+                <FadeIn dir="right">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                    Our story
+                  </p>
+                  <h2
+                    id="story-heading"
+                    className="font-display text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl lg:text-4xl"
+                  >
+                    Meet the family behind the kitchen
+                  </h2>
+                  <p className="mt-5 max-w-xl text-sm leading-relaxed text-foreground/80 sm:text-base">
+                    {aboutContent.story}
+                  </p>
+                  {aboutContent.mission && (
+                    <div className="mt-6 flex gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 sm:p-5">
+                      <Quote className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" aria-hidden />
+                      <p className="text-sm italic leading-relaxed text-foreground/80">
+                        {aboutContent.mission}
+                      </p>
+                    </div>
+                  )}
+                  <div className="mt-7 flex flex-wrap gap-3">
+                    <Button asChild variant="outline" className="gap-2">
+                      <Link href={`${base}/about`}>
+                        <Heart className="h-4 w-4" />
+                        Read our full story
+                      </Link>
+                    </Button>
+                    {galleryPreview.length > 0 && (
+                      <Button asChild variant="ghost" className="gap-2">
+                        <Link href={`${base}/gallery`}>
+                          <ImageIcon className="h-4 w-4" />
+                          View gallery
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </FadeIn>
+              )}
+
+              {galleryPreview.length > 0 && (
+                <FadeIn dir="left" delay={aboutContent?.story ? 0.15 : 0}>
+                  <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+                    {galleryPreview.slice(0, 6).map((img, i) => (
+                      <Link
+                        key={img.id}
+                        href={`${base}/gallery`}
+                        aria-label={`Open gallery — ${img.caption ?? "photo"}`}
+                        className={`group relative overflow-hidden rounded-xl bg-muted ${
+                          // First tile spans 2x2 for visual rhythm, matching
+                          // the masonry treatment on the full gallery page.
+                          i === 0 ? "col-span-2 row-span-2 aspect-square" : "aspect-square"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={img.imageUrl}
+                          alt={img.caption ?? "Restaurant photo"}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                      </Link>
+                    ))}
+                  </div>
+                </FadeIn>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* ── Section divider ─────────────────────────────────────── */}
         <div className="section-divider mb-16" aria-hidden />

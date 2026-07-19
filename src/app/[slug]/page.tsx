@@ -48,6 +48,17 @@ export default async function TenantHomePage({
     take: 4,
   });
 
+  // Story content (PRD §5.21) — surfaced as a homepage teaser band, full
+  // version lives on /about. Optional: some tenants haven't filled this in.
+  const aboutContent = await tenant.aboutContent.findFirst();
+
+  // A handful of gallery shots for the homepage teaser strip; full gallery
+  // with filtering + lightbox lives on /gallery.
+  const galleryPreview = await tenant.galleryImage.findMany({
+    orderBy: { sortOrder: "asc" },
+    take: 6,
+  });
+
   const publicUrl =
     process.env.NEXT_PUBLIC_PUBLIC_URL ??
     `https://${restaurant.slug}.majidos.app`;
@@ -72,6 +83,16 @@ export default async function TenantHomePage({
       }))}
       popularItems={popularItems}
       publicUrl={publicUrl}
+      aboutContent={
+        aboutContent
+          ? { story: aboutContent.story, mission: aboutContent.mission }
+          : null
+      }
+      galleryPreview={galleryPreview.map((g) => ({
+        id: g.id,
+        imageUrl: g.imageUrl,
+        caption: g.caption,
+      }))}
     />
   );
 }
